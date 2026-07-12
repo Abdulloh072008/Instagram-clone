@@ -24,7 +24,7 @@ export * as locationApi from "./location";
 // Ядро — на случай кастомных запросов и обработки ошибок.
 export { request, ApiError } from "./http";
 export type { ApiResponse, RequestOptions } from "./http";
-export { API_BASE_URL } from "./config";
+export { API_BASE_URL, mediaUrl } from "./config";
 
 // Управление токеном.
 export * as authToken from "./auth-token";
