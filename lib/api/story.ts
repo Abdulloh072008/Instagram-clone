@@ -21,31 +21,42 @@ export interface Story {
   viewerDto?: StoryViewerDto;
 }
 
-/**
- * Сторис в ленте сгруппированы по пользователю.
- * Внимание: get-stories / get-user-stories / get-my-stories возвращают
- * ГОЛЫЙ массив (без конверта ApiResponse).
- */
+/** Элемент сторис в группе (лента/профиль). */
+export interface StoryItem {
+  id: number;
+  fileName: string;
+  postId: number;
+  createAt: string;
+  liked: boolean;
+  likedCount: number;
+}
+
+/** Сторис одного пользователя, сгруппированные. */
 export interface StoryGroup {
   userId: string;
   userName: string;
   userImage: string;
-  stories: unknown[];
+  stories: StoryItem[];
 }
 
-/** Лента сторис (тех, на кого подписан). Возвращает массив напрямую. */
+/**
+ * Лента сторис (тех, на кого подписан).
+ * ВНИМАНИЕ: возвращает ГОЛЫЙ массив групп, без конверта ApiResponse.
+ */
 export function getStories() {
   return request<StoryGroup[]>("/Story/get-stories");
 }
 
-/** Сторис конкретного пользователя. Возвращает массив напрямую. */
+/** Сторис конкретного пользователя (одна группа в конверте). */
 export function getUserStories(userId: string) {
-  return request<StoryGroup[]>(`/Story/get-user-stories/${encodeURIComponent(userId)}`);
+  return request<ApiResponse<StoryGroup>>(
+    `/Story/get-user-stories/${encodeURIComponent(userId)}`,
+  );
 }
 
-/** Мои сторис. Возвращает массив напрямую. */
+/** Мои сторис (одна группа в конверте). */
 export function getMyStories() {
-  return request<StoryGroup[]>("/Story/get-my-stories");
+  return request<ApiResponse<StoryGroup>>("/Story/get-my-stories");
 }
 
 /** Одна сторис по id. */
