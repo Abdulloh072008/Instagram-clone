@@ -1,4 +1,5 @@
 import { request, ApiResponse, PagedResponse } from "./http";
+import { getMyStories, deleteStory } from "./story";
 import type {
   GetPostsParams,
   AddPostRequest,
@@ -64,9 +65,26 @@ export function addPost(payload: AddPostRequest) {
   return request<ApiResponse<unknown>>("/Post/add-post", { method: "POST", formData: form });
 }
 
-/** Удалить пост. */
+/** Удалить пост (сырой вызов ручки). */
 export function deletePost(id: number) {
   return request<ApiResponse<unknown>>("/Post/delete-post", { method: "DELETE", query: { id } });
+}
+
+/**
+ * Безопасное удаление поста.
+ *
+ * Бэкенд отдаёт 500 при удалении поста, на который ссылается сторис
+ * (FK-зависимость, каскад на сервере не настроен). Поэтому сначала
+ * удаляем свои сторис этого поста, затем сам пост. Используй это вместо
+ * deletePost, если к посту могли создавать сторис.
+ */
+export async function deletePostSafe(id: number) {
+  const my = await getMyStories();
+  const stories = my.data?.stories?.filter((s) => s.postId === id) ?? [];
+  for (const s of stories) {
+    await deleteStory(s.id);
+  }
+  return deletePost(id);
 }
 
 /** Поставить/снять лайк. */
