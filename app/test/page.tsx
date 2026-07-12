@@ -561,7 +561,7 @@ function LocationsView() {
             <Btn onClick={() => run("add-Location", () => locationApi.addLocation(form)).then(load)}>Добавить</Btn>
           )}
         </div>
-        <div className="text-[11px] opacity-40">⚠ update-Location на сервере пока падает (баг AutoMapper на бэке).</div>
+        <div className="text-[11px] opacity-40">📍 Локации работают через доп-бэкенд (InstagramExtraApi) — update тоже.</div>
       </Card>
 
       <Card title="Список" right={<Btn variant="ghost" onClick={load}>Обновить</Btn>}>

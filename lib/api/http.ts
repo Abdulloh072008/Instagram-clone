@@ -56,10 +56,12 @@ export interface RequestOptions {
   headers?: Record<string, string>;
   /** Проброс AbortSignal для отмены запроса. */
   signal?: AbortSignal;
+  /** Переопределить базовый адрес (напр. для дополнительного бэкенда). */
+  baseUrl?: string;
 }
 
-function buildUrl(path: string, query?: Record<string, QueryValue>): string {
-  const url = new URL(`${API_BASE_URL}${path}`);
+function buildUrl(path: string, query: Record<string, QueryValue> | undefined, baseUrl: string): string {
+  const url = new URL(`${baseUrl}${path}`);
   if (query) {
     for (const [key, value] of Object.entries(query)) {
       if (value === undefined || value === null || value === "") continue;
@@ -79,7 +81,7 @@ function buildUrl(path: string, query?: Record<string, QueryValue>): string {
  * - Возвращает распарсенное тело как T (обычно ApiResponse<...>).
  */
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = "GET", query, json, formData, auth = true, headers = {}, signal } = options;
+  const { method = "GET", query, json, formData, auth = true, headers = {}, signal, baseUrl = API_BASE_URL } = options;
 
   const finalHeaders: Record<string, string> = { Accept: "application/json", ...headers };
 
@@ -96,7 +98,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     body = JSON.stringify(json);
   }
 
-  const response = await fetch(buildUrl(path, query), {
+  const response = await fetch(buildUrl(path, query, baseUrl), {
     method,
     headers: finalHeaders,
     body,
