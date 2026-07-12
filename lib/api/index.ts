@@ -28,7 +28,8 @@ export { API_BASE_URL, mediaUrl } from "./config";
 
 // Управление токеном.
 export * as authToken from "./auth-token";
-export { setToken, getToken, clearToken, isAuthenticated } from "./auth-token";
+export { setToken, getToken, clearToken, isAuthenticated, getCurrentUser } from "./auth-token";
+export type { CurrentUser } from "./auth-token";
 
 // Все типы и enum-ы.
 export * from "./types";

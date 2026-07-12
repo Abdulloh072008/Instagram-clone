@@ -41,3 +41,33 @@ export function clearToken(): void {
 export function isAuthenticated(): boolean {
   return Boolean(getToken());
 }
+
+export interface CurrentUser {
+  userId: string;
+  userName: string;
+  email: string;
+  role: string;
+}
+
+/**
+ * Данные текущего пользователя из JWT (без запроса к API).
+ * Бэк кладёт id в claim `sid`, ник — в `name`. Удобно, чтобы понять,
+ * чьи это посты/комменты и какой у тебя userId.
+ */
+export function getCurrentUser(): CurrentUser | null {
+  const token = getToken();
+  if (!token) return null;
+  try {
+    const payloadPart = token.split(".")[1];
+    const json = atob(payloadPart.replace(/-/g, "+").replace(/_/g, "/"));
+    const p = JSON.parse(json);
+    return {
+      userId: p.sid ?? "",
+      userName: p.name ?? "",
+      email: p.email ?? "",
+      role: p["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ?? p.role ?? "",
+    };
+  } catch {
+    return null;
+  }
+}

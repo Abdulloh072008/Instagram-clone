@@ -6,6 +6,7 @@ import type {
   AddCommentRequest,
   AddPostFavoriteRequest,
   Post,
+  Reel,
   Pagination,
 } from "./types";
 
@@ -28,19 +29,19 @@ export function getPosts(params: GetPostsParams = {}) {
 
 /** Рилсы (видео-лента). */
 export function getReels(params: Pagination = {}) {
-  return request<PagedResponse<Post>>("/Post/get-reels", {
+  return request<PagedResponse<Reel>>("/Post/get-reels", {
     query: { PageNumber: params.pageNumber, PageSize: params.pageSize },
   });
 }
 
-/** Один пост по id. */
+/** Один пост по id (с комментариями). */
 export function getPostById(id: number) {
-  return request<ApiResponse<unknown>>("/Post/get-post-by-id", { query: { id } });
+  return request<ApiResponse<Post>>("/Post/get-post-by-id", { query: { id } });
 }
 
 /** Мои посты. */
 export function getMyPosts() {
-  return request<ApiResponse<unknown>>("/Post/get-my-posts");
+  return request<ApiResponse<Post[]>>("/Post/get-my-posts");
 }
 
 /** Посты пользователей, на которых я подписан. */

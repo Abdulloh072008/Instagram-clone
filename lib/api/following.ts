@@ -1,4 +1,5 @@
 import { request, ApiResponse } from "./http";
+import type { Subscriber } from "./types";
 
 /**
  * /FollowingRelationShip — подписки и подписчики.
@@ -6,14 +7,14 @@ import { request, ApiResponse } from "./http";
 
 /** Подписчики пользователя. */
 export function getSubscribers(userId: string) {
-  return request<ApiResponse<unknown>>("/FollowingRelationShip/get-subscribers", {
+  return request<ApiResponse<Subscriber[]>>("/FollowingRelationShip/get-subscribers", {
     query: { UserId: userId },
   });
 }
 
 /** Подписки пользователя. */
 export function getSubscriptions(userId: string) {
-  return request<ApiResponse<unknown>>("/FollowingRelationShip/get-subscriptions", {
+  return request<ApiResponse<Subscriber[]>>("/FollowingRelationShip/get-subscriptions", {
     query: { UserId: userId },
   });
 }

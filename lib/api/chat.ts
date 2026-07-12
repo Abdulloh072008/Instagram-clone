@@ -1,5 +1,5 @@
 import { request, ApiResponse } from "./http";
-import type { SendMessageRequest } from "./types";
+import type { SendMessageRequest, ChatSummary, ChatMessage } from "./types";
 
 /**
  * /Chat — чаты и сообщения.
@@ -7,12 +7,12 @@ import type { SendMessageRequest } from "./types";
 
 /** Список моих чатов. */
 export function getChats() {
-  return request<ApiResponse<unknown>>("/Chat/get-chats");
+  return request<ApiResponse<ChatSummary[]>>("/Chat/get-chats");
 }
 
-/** Чат по id (с сообщениями). */
+/** Чат по id — возвращает массив сообщений. */
 export function getChatById(chatId: number) {
-  return request<ApiResponse<unknown>>("/Chat/get-chat-by-id", { query: { chatId } });
+  return request<ApiResponse<ChatMessage[]>>("/Chat/get-chat-by-id", { query: { chatId } });
 }
 
 /** Создать чат с пользователем. */

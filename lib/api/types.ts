@@ -100,22 +100,92 @@ export interface GetLocationsParams extends Pagination {
 
 // ── Post ────────────────────────────────────────────────────────────────────
 
-/** Пост из ленты (реальная форма ответа get-posts). */
+/** Комментарий к посту. */
+export interface Comment {
+  postCommentId: number;
+  userId: string;
+  userName: string | null;
+  userImage: string | null;
+  dateCommented: string;
+  comment: string;
+}
+
+/** Пост из ленты (реальная форма ответа get-posts / get-post-by-id). */
 export interface Post {
+  postId: number;
+  userId: string;
+  userName: string | null;
+  userImage: string | null;
+  datePublished: string;
+  images: string[];
+  title?: string;
+  content?: string;
+  postLike: boolean;
+  postLikeCount: number;
+  commentCount: number;
+  comments: Comment[];
+  postView: number;
+  postFavorite: boolean;
+  userLikes?: unknown[];
+  userViews?: unknown[];
+}
+
+/** Рил (get-reels). Отличие от поста: images — одна строка (видео). */
+export interface Reel {
   postId: number;
   userId: string;
   userName: string;
   userImage: string;
   datePublished: string;
-  images: string[];
-  title: string;
-  content: string;
+  images: string; // имя видеофайла
+  isSubscriber: boolean;
   postLike: boolean;
   postLikeCount: number;
   commentCount: number;
-  comments: unknown[];
-  postView: number;
-  postFavorite: boolean;
+  comments: Comment[];
+}
+
+/** Краткая инфа о пользователе в списках подписчиков/подписок. */
+export interface Subscriber {
+  id: number;
+  userShortInfo: {
+    userId: string;
+    userName: string;
+    userPhoto: string;
+    fullname: string;
+  };
+}
+
+/** Локация. */
+export interface Location {
+  locationId: number;
+  city: string;
+  state: string;
+  zipCode: string;
+  country: string;
+}
+
+/** Элемент списка чатов. */
+export interface ChatSummary {
+  chatId: number;
+  sendUserId: string;
+  sendUserName: string;
+  sendUserImage: string;
+  receiveUserId: string;
+  receiveUserName: string;
+  receiveUserImage: string;
+}
+
+/** Сообщение в чате. */
+export interface ChatMessage {
+  messageId: number;
+  chatId: number;
+  userId: string;
+  userName: string;
+  userImage: string;
+  messageText: string;
+  sendMassageDate: string;
+  file: string | null;
 }
 
 export interface GetPostsParams extends Pagination {

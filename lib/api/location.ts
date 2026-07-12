@@ -3,6 +3,7 @@ import type {
   GetLocationsParams,
   AddLocationRequest,
   UpdateLocationRequest,
+  Location,
 } from "./types";
 
 /**
@@ -11,7 +12,7 @@ import type {
 
 /** Список локаций с фильтрами и пагинацией. */
 export function getLocations(params: GetLocationsParams = {}) {
-  return request<PagedResponse<unknown>>("/Location/get-Locations", {
+  return request<PagedResponse<Location>>("/Location/get-Locations", {
     query: {
       City: params.city,
       State: params.state,
@@ -25,7 +26,7 @@ export function getLocations(params: GetLocationsParams = {}) {
 
 /** Локация по id. */
 export function getLocationById(id: number) {
-  return request<ApiResponse<unknown>>("/Location/get-Location-by-id", { query: { id } });
+  return request<ApiResponse<Location>>("/Location/get-Location-by-id", { query: { id } });
 }
 
 /** Добавить локацию. */
