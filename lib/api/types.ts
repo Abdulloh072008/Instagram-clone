@@ -38,12 +38,13 @@ export interface LoginRequest {
 
 // ── User / UserProfile ──────────────────────────────────────────────────────
 
+/** Пользователь из списка get-users (реальная форма ответа). */
 export interface User {
   id: string;
   userName: string;
   fullName?: string;
-  email?: string;
-  userPhoto?: string | null;
+  avatar?: string;
+  subscribersCount?: number;
 }
 
 export interface GetUsersParams extends Pagination {
@@ -51,16 +52,25 @@ export interface GetUsersParams extends Pagination {
   email?: string;
 }
 
+/**
+ * Профиль пользователя (get-my-profile / get-user-profile-by-id).
+ * Поля по факту ответа бэка. Внимание: gender приходит СТРОКОЙ ("Male"/"Female"),
+ * хотя в update-профиле он отправляется числом (см. Gender).
+ */
 export interface UserProfile {
-  userId: string;
   userName: string;
-  fullName?: string;
+  firstName?: string;
+  lastName?: string;
   about?: string | null;
-  gender?: Gender;
+  occupation?: string | null;
+  gender?: string;
   image?: string | null;
   postCount?: number;
   subscribersCount?: number;
   subscriptionsCount?: number;
+  locationId?: number;
+  dob?: string;
+  dateUpdated?: string;
 }
 
 export interface UpdateUserProfileRequest {
@@ -89,6 +99,24 @@ export interface GetLocationsParams extends Pagination {
 }
 
 // ── Post ────────────────────────────────────────────────────────────────────
+
+/** Пост из ленты (реальная форма ответа get-posts). */
+export interface Post {
+  postId: number;
+  userId: string;
+  userName: string;
+  userImage: string;
+  datePublished: string;
+  images: string[];
+  title: string;
+  content: string;
+  postLike: boolean;
+  postLikeCount: number;
+  commentCount: number;
+  comments: unknown[];
+  postView: number;
+  postFavorite: boolean;
+}
 
 export interface GetPostsParams extends Pagination {
   userId?: string;

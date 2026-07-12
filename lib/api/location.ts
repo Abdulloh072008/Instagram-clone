@@ -1,4 +1,4 @@
-import { request, ApiResponse } from "./http";
+import { request, ApiResponse, PagedResponse } from "./http";
 import type {
   GetLocationsParams,
   AddLocationRequest,
@@ -11,7 +11,7 @@ import type {
 
 /** Список локаций с фильтрами и пагинацией. */
 export function getLocations(params: GetLocationsParams = {}) {
-  return request<ApiResponse<unknown>>("/Location/get-Locations", {
+  return request<PagedResponse<unknown>>("/Location/get-Locations", {
     query: {
       City: params.city,
       State: params.state,

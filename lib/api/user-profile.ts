@@ -1,4 +1,4 @@
-import { request, ApiResponse } from "./http";
+import { request, ApiResponse, PagedResponse } from "./http";
 import type { UserProfile, UpdateUserProfileRequest, Pagination } from "./types";
 
 /**
@@ -34,7 +34,7 @@ export function updateUserProfile(payload: UpdateUserProfileRequest) {
 
 /** Мои избранные посты. */
 export function getPostFavorites(params: Pagination = {}) {
-  return request<ApiResponse<unknown>>("/UserProfile/get-post-favorites", {
+  return request<PagedResponse<unknown>>("/UserProfile/get-post-favorites", {
     query: { PageNumber: params.pageNumber, PageSize: params.pageSize },
   });
 }

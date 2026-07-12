@@ -11,6 +11,20 @@ export interface ApiResponse<T> {
   statusCode: number;
 }
 
+/**
+ * Ответ списковых ручек с пагинацией. Помимо data содержит метаданные
+ * страницы (get-posts, get-reels, get-users, get-locations и т.п.).
+ */
+export interface PagedResponse<T> {
+  data: T[];
+  pageNumber: number;
+  pageSize: number;
+  totalPage: number;
+  totalRecord: number;
+  errors: string[] | null;
+  statusCode: number;
+}
+
 /** Ошибка запроса. Кидается, если HTTP-статус не 2xx или сервер вернул errors. */
 export class ApiError extends Error {
   status: number;

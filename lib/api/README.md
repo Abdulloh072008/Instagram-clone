@@ -29,15 +29,27 @@ console.log(res.data);
 authToken.clearToken();
 ```
 
-## Формат ответа
+## Форматы ответа (проверено на живом API)
 
-Почти все ручки отдают конверт `ApiResponse<T>`:
+Бэк отдаёт **три разных формата** — типы это уже учитывают:
 
-```ts
-{ data: T; errors: string[] | null; statusCode: number }
-```
-
-Данные лежат в `res.data`.
+1. **Обычный конверт** `ApiResponse<T>` (login, get-chats, get-my-profile, …):
+   ```ts
+   { data: T; errors: string[] | null; statusCode: number }
+   ```
+2. **Список с пагинацией** `PagedResponse<T>` (get-posts, get-reels, get-users,
+   get-following-post, get-locations, get-post-favorites):
+   ```ts
+   { data: T[]; pageNumber; pageSize; totalPage; totalRecord; errors; statusCode }
+   ```
+   ```ts
+   const res = await postApi.getPosts({ pageNumber: 1, pageSize: 10 });
+   res.data;        // сами посты
+   res.totalRecord; // сколько всего
+   ```
+3. **Голый массив без конверта** — только сторис-лента (get-stories,
+   get-user-stories, get-my-stories): возвращается `StoryGroup[]` напрямую,
+   `res` — это уже массив, `.data` у него нет.
 
 ## Ошибки
 

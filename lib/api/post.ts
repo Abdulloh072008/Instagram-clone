@@ -1,9 +1,10 @@
-import { request, ApiResponse } from "./http";
+import { request, ApiResponse, PagedResponse } from "./http";
 import type {
   GetPostsParams,
   AddPostRequest,
   AddCommentRequest,
   AddPostFavoriteRequest,
+  Post,
   Pagination,
 } from "./types";
 
@@ -13,7 +14,7 @@ import type {
 
 /** Лента постов с фильтрами и пагинацией. */
 export function getPosts(params: GetPostsParams = {}) {
-  return request<ApiResponse<unknown>>("/Post/get-posts", {
+  return request<PagedResponse<Post>>("/Post/get-posts", {
     query: {
       UserId: params.userId,
       Title: params.title,
@@ -26,7 +27,7 @@ export function getPosts(params: GetPostsParams = {}) {
 
 /** Рилсы (видео-лента). */
 export function getReels(params: Pagination = {}) {
-  return request<ApiResponse<unknown>>("/Post/get-reels", {
+  return request<PagedResponse<Post>>("/Post/get-reels", {
     query: { PageNumber: params.pageNumber, PageSize: params.pageSize },
   });
 }
@@ -43,7 +44,7 @@ export function getMyPosts() {
 
 /** Посты пользователей, на которых я подписан. */
 export function getFollowingPosts(params: { userId?: string } & Pagination = {}) {
-  return request<ApiResponse<unknown>>("/Post/get-following-post", {
+  return request<PagedResponse<Post>>("/Post/get-following-post", {
     query: {
       UserId: params.userId,
       PageNumber: params.pageNumber,

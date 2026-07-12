@@ -1,13 +1,13 @@
-import { request, ApiResponse } from "./http";
+import { request, ApiResponse, PagedResponse } from "./http";
 import type { GetUsersParams, User } from "./types";
 
 /**
  * /User — поиск пользователей и история поиска.
  */
 
-/** Поиск/список пользователей. */
+/** Поиск/список пользователей (с пагинацией). */
 export function getUsers(params: GetUsersParams = {}) {
-  return request<ApiResponse<User[]>>("/User/get-users", {
+  return request<PagedResponse<User>>("/User/get-users", {
     query: {
       UserName: params.userName,
       Email: params.email,

@@ -21,19 +21,31 @@ export interface Story {
   viewerDto?: StoryViewerDto;
 }
 
-/** Лента сторис (тех, на кого подписан). */
+/**
+ * Сторис в ленте сгруппированы по пользователю.
+ * Внимание: get-stories / get-user-stories / get-my-stories возвращают
+ * ГОЛЫЙ массив (без конверта ApiResponse).
+ */
+export interface StoryGroup {
+  userId: string;
+  userName: string;
+  userImage: string;
+  stories: unknown[];
+}
+
+/** Лента сторис (тех, на кого подписан). Возвращает массив напрямую. */
 export function getStories() {
-  return request<ApiResponse<Story[]>>("/Story/get-stories");
+  return request<StoryGroup[]>("/Story/get-stories");
 }
 
-/** Сторис конкретного пользователя. */
+/** Сторис конкретного пользователя. Возвращает массив напрямую. */
 export function getUserStories(userId: string) {
-  return request<ApiResponse<Story[]>>(`/Story/get-user-stories/${encodeURIComponent(userId)}`);
+  return request<StoryGroup[]>(`/Story/get-user-stories/${encodeURIComponent(userId)}`);
 }
 
-/** Мои сторис. */
+/** Мои сторис. Возвращает массив напрямую. */
 export function getMyStories() {
-  return request<ApiResponse<Story[]>>("/Story/get-my-stories");
+  return request<StoryGroup[]>("/Story/get-my-stories");
 }
 
 /** Одна сторис по id. */
