@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { postApi, storyApi, mediaUrl, type Post } from "@/lib/api";
 import type { Story } from "@/lib/api/story";
-import { useLog, Btn, Avatar, Modal, Input, fmtDate } from "./ui";
+import { useLog, Btn, Avatar, Modal, Input, Icon, fmtDate } from "./ui";
 
 const isImg = (f?: string) => !!f && /\.(png|jpe?g|gif|webp)$/i.test(f);
 const isVideo = (f?: string) => !!f && /\.(mp4|webm|mov)$/i.test(f);
@@ -24,9 +24,9 @@ export function PostThumb({ post, onClick }: { post: Post; onClick: () => void }
   return (
     <button onClick={onClick} className="relative aspect-square overflow-hidden group">
       <Media file={file} className="w-full h-full object-cover" />
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition grid place-items-center text-white text-sm gap-3 grid-flow-col">
-        <span>❤️ {post.postLikeCount}</span>
-        <span>💬 {post.commentCount}</span>
+      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition grid place-items-center text-white text-sm gap-4 grid-flow-col font-semibold">
+        <span className="flex items-center gap-1.5"><Icon name="heart" size={18} fill /> {post.postLikeCount}</span>
+        <span className="flex items-center gap-1.5"><Icon name="comment" size={18} fill /> {post.commentCount}</span>
       </div>
     </button>
   );
@@ -55,10 +55,10 @@ export function PostModal({ postId, myId, onClose, onChanged }: { postId: number
           {imgs.length ? imgs.map((f, i) => <Media key={i} file={f} className="w-full h-full max-h-[90vh] object-contain snap-center shrink-0" />) : <div className="aspect-square w-full" />}
         </div>
         <div className="flex flex-col min-h-0">
-          <div className="flex items-center gap-2 p-3 border-b border-black/10 dark:border-white/10">
+          <div className="flex items-center gap-2.5 p-3.5 border-b border-black/[.07] dark:border-white/10">
             <Avatar src={post?.userImage} name={post?.userName ?? ""} size={32} />
-            <b className="text-sm">@{post?.userName ?? "…"}</b>
-            <button onClick={onClose} className="ml-auto text-xl leading-none">×</button>
+            <b className="text-sm">{post?.userName ?? "…"}</b>
+            <button onClick={onClose} className="ml-auto opacity-60 hover:opacity-100 transition"><Icon name="x" size={20} /></button>
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
@@ -86,21 +86,32 @@ export function PostModal({ postId, myId, onClose, onChanged }: { postId: number
             )}
           </div>
 
-          <div className="p-3 border-t border-black/10 dark:border-white/10 flex flex-col gap-2">
-            <div className="flex items-center gap-3 text-lg">
-              <button onClick={() => run("like-post", () => postApi.likePost(postId)).then(() => { load(); onChanged?.(); })}>
-                {post?.postLike ? "❤️" : "🤍"}
+          <div className="p-3 border-t border-black/[.07] dark:border-white/10 flex flex-col gap-2.5">
+            <div className="flex items-center gap-4">
+              <button
+                className={"transition hover:opacity-70 " + (post?.postLike ? "text-[#ed4956]" : "")}
+                onClick={() => run("like-post", () => postApi.likePost(postId)).then(() => { load(); onChanged?.(); })}
+              >
+                <Icon name="heart" size={24} fill={post?.postLike} />
               </button>
-              <span className="text-sm">{post?.postLikeCount ?? 0}</span>
-              <button className="ml-2" onClick={() => run("add-post-favorite", () => postApi.addPostFavorite({ postId })).then(load)}>
-                {post?.postFavorite ? "🔖" : "🏷️"}
+              <button className="transition hover:opacity-70" onClick={() => document.getElementById("pm-comment")?.focus()}>
+                <Icon name="comment" size={24} />
               </button>
-              <span className="text-sm opacity-60">👁 {post?.postView ?? 0}</span>
+              <button
+                className={"transition hover:opacity-70 " + (post?.postFavorite ? "text-foreground" : "")}
+                onClick={() => run("add-post-favorite", () => postApi.addPostFavorite({ postId })).then(load)}
+              >
+                <Icon name="bookmark" size={24} fill={post?.postFavorite} />
+              </button>
               {post?.userId === myId && (
-                <button className="ml-auto text-xs text-red-500" onClick={() => run("deletePostSafe", () => postApi.deletePostSafe(postId)).then(() => { onChanged?.(); onClose(); })}>
-                  удалить пост
+                <button className="ml-auto text-[#ed4956] hover:opacity-70 transition" title="Удалить пост" onClick={() => run("deletePostSafe", () => postApi.deletePostSafe(postId)).then(() => { onChanged?.(); onClose(); })}>
+                  <Icon name="trash" size={20} />
                 </button>
               )}
+            </div>
+            <div className="text-sm font-semibold">{post?.postLikeCount ?? 0} отметок «Нравится»</div>
+            <div className="flex items-center gap-1.5 text-xs opacity-50">
+              <Icon name="eye" size={14} /> {post?.postView ?? 0} просмотров
             </div>
             <form
               className="flex gap-2"
@@ -110,8 +121,8 @@ export function PostModal({ postId, myId, onClose, onChanged }: { postId: number
                 run("add-comment", () => postApi.addComment({ comment: text, postId })).then(() => { setText(""); load(); });
               }}
             >
-              <Input placeholder="добавить комментарий…" value={text} onChange={(e) => setText(e.target.value)} className="flex-1" />
-              <Btn type="submit">Отпр.</Btn>
+              <Input id="pm-comment" placeholder="Добавить комментарий…" value={text} onChange={(e) => setText(e.target.value)} className="flex-1" />
+              <Btn type="submit" variant="ghost" disabled={!text.trim()}><Icon name="send" size={16} /></Btn>
             </form>
           </div>
         </div>
@@ -135,17 +146,20 @@ export function StoryViewer({ storyId, myId, onClose, onChanged }: { storyId: nu
     <Modal onClose={onClose}>
       <div className="relative">
         <Media file={story?.fileName} className="w-full max-h-[80vh] object-contain bg-black" />
-        <div className="absolute top-0 inset-x-0 p-3 flex items-center gap-2 bg-gradient-to-b from-black/60 to-transparent text-white">
+        <div className="absolute top-0 inset-x-0 p-3.5 flex items-center gap-2.5 bg-gradient-to-b from-black/70 to-transparent text-white">
           <Avatar src={story?.userAvatar} name={story?.userId ?? ""} size={30} />
           <b className="text-sm">{story?.viewerDto?.userName ?? story?.userId?.slice(0, 6)}</b>
-          <span className="text-xs opacity-80">👁 {story?.viewerDto?.viewCount ?? 0} · ❤️ {story?.viewerDto?.viewLike ?? 0}</span>
-          <button onClick={onClose} className="ml-auto text-2xl leading-none">×</button>
+          <span className="flex items-center gap-1.5 text-xs opacity-80">
+            <Icon name="eye" size={13} /> {story?.viewerDto?.viewCount ?? 0}
+            <Icon name="heart" size={13} className="ml-1" /> {story?.viewerDto?.viewLike ?? 0}
+          </span>
+          <button onClick={onClose} className="ml-auto opacity-80 hover:opacity-100 transition"><Icon name="x" size={22} /></button>
         </div>
-        <div className="absolute bottom-0 inset-x-0 p-3 flex gap-3 bg-gradient-to-t from-black/60 to-transparent text-white text-lg">
-          <button onClick={() => run("LikeStory", () => storyApi.likeStory(storyId))}>❤️ лайк</button>
+        <div className="absolute bottom-0 inset-x-0 p-3.5 flex items-center gap-4 bg-gradient-to-t from-black/70 to-transparent text-white">
+          <button className="hover:opacity-70 transition" onClick={() => run("LikeStory", () => storyApi.likeStory(storyId))}><Icon name="heart" size={26} /></button>
           {story?.userId === myId && (
-            <button className="ml-auto text-red-400 text-sm" onClick={() => run("DeleteStory", () => storyApi.deleteStory(storyId)).then(() => { onChanged?.(); onClose(); })}>
-              удалить
+            <button className="ml-auto text-[#ed4956] hover:opacity-70 transition" title="Удалить" onClick={() => run("DeleteStory", () => storyApi.deleteStory(storyId)).then(() => { onChanged?.(); onClose(); })}>
+              <Icon name="trash" size={22} />
             </button>
           )}
         </div>

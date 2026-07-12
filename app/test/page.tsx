@@ -7,21 +7,21 @@ import {
   type Subscriber, type ChatSummary, type ChatMessage, type Location, type CurrentUser,
 } from "@/lib/api";
 import type { StoryGroup } from "@/lib/api/story";
-import { LogProvider, LogDrawer, useLog, Btn, Input, TextArea, Card, Avatar, Modal, fmtDate } from "./ui";
+import { LogProvider, LogDrawer, useLog, Btn, Input, TextArea, Card, Avatar, Modal, Icon, fmtDate } from "./ui";
 import { PostModal, StoryViewer, PostThumb, Media } from "./components";
 
 type Tab = "home" | "explore" | "reels" | "search" | "messages" | "create" | "profile" | "locations" | "account";
 
 const NAV: { key: Tab; icon: string; label: string }[] = [
-  { key: "home", icon: "🏠", label: "Главная" },
-  { key: "explore", icon: "🧭", label: "Интересное" },
-  { key: "reels", icon: "🎬", label: "Reels" },
-  { key: "search", icon: "🔍", label: "Поиск" },
-  { key: "messages", icon: "✉️", label: "Сообщения" },
-  { key: "create", icon: "➕", label: "Создать" },
-  { key: "profile", icon: "👤", label: "Профиль" },
-  { key: "locations", icon: "📍", label: "Локации" },
-  { key: "account", icon: "⚙️", label: "Аккаунт" },
+  { key: "home", icon: "home", label: "Главная" },
+  { key: "explore", icon: "explore", label: "Интересное" },
+  { key: "reels", icon: "reels", label: "Reels" },
+  { key: "search", icon: "search", label: "Поиск" },
+  { key: "messages", icon: "message", label: "Сообщения" },
+  { key: "create", icon: "create", label: "Создать" },
+  { key: "profile", icon: "profile", label: "Профиль" },
+  { key: "locations", icon: "pin", label: "Локации" },
+  { key: "account", icon: "settings", label: "Аккаунт" },
 ];
 
 export default function Page() {
@@ -57,19 +57,27 @@ function Shell() {
   return (
     <div className="flex min-h-screen">
       {/* сайдбар */}
-      <nav className="sticky top-0 h-screen w-16 lg:w-56 shrink-0 border-r border-black/10 dark:border-white/15 p-2 lg:p-4 flex flex-col gap-1">
-        <div className="text-xl font-bold px-2 py-3 hidden lg:block">Instagram</div>
-        {NAV.map((n) => (
-          <button
-            key={n.key}
-            onClick={() => setTab(n.key)}
-            className={"flex items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-black/5 dark:hover:bg-white/10 " + (tab === n.key ? "font-bold bg-black/5 dark:bg-white/10" : "")}
-          >
-            <span className="text-xl">{n.icon}</span>
-            <span className="hidden lg:inline text-sm">{n.label}</span>
-          </button>
-        ))}
-        <div className="mt-auto text-[11px] opacity-50 px-2 hidden lg:block">@{me?.userName}</div>
+      <nav className="sticky top-0 h-screen w-16 xl:w-60 shrink-0 border-r border-black/[.07] dark:border-white/10 p-3 flex flex-col gap-1">
+        <div className="text-2xl font-bold px-3 py-5 hidden xl:block tracking-tight">Instagram</div>
+        <div className="h-5 xl:hidden" />
+        {NAV.map((n) => {
+          const active = tab === n.key;
+          return (
+            <button
+              key={n.key}
+              onClick={() => setTab(n.key)}
+              title={n.label}
+              className={"flex items-center gap-4 rounded-xl px-3 py-3 text-left transition hover:bg-black/[.05] dark:hover:bg-white/[.08] " + (active ? "font-bold" : "")}
+            >
+              <Icon name={n.icon} size={24} fill={active} />
+              <span className="hidden xl:inline text-[15px]">{n.label}</span>
+            </button>
+          );
+        })}
+        <div className="mt-auto items-center gap-2.5 px-3 py-2 text-sm hidden xl:flex">
+          <Avatar name={me?.userName} size={26} />
+          <span className="opacity-70 truncate">{me?.userName}</span>
+        </div>
       </nav>
 
       {/* контент */}
@@ -167,23 +175,25 @@ function HomeView({ myId, openPost, openStory, openUser }: Ctx) {
 
       {/* лента */}
       {posts.map((p) => (
-        <article key={p.postId} className="border border-black/10 dark:border-white/15 rounded-xl overflow-hidden">
-          <div className="flex items-center gap-2 p-3">
-            <button onClick={() => openUser(p.userId)}><Avatar src={p.userImage} name={p.userName ?? ""} size={34} /></button>
-            <button onClick={() => openUser(p.userId)} className="text-sm font-semibold">@{p.userName}</button>
+        <article key={p.postId} className="border border-black/[.07] dark:border-white/10 rounded-2xl overflow-hidden">
+          <div className="flex items-center gap-2.5 p-3">
+            <button onClick={() => openUser(p.userId)}><Avatar src={p.userImage} name={p.userName ?? ""} size={36} /></button>
+            <button onClick={() => openUser(p.userId)} className="text-sm font-semibold">{p.userName}</button>
             <span className="ml-auto text-[11px] opacity-40">{fmtDate(p.datePublished)}</span>
           </div>
           <button onClick={() => openPost(p.postId)} className="block w-full">
             <Media file={Array.isArray(p.images) ? p.images[0] : (p.images as unknown as string)} className="w-full aspect-square object-cover" />
           </button>
-          <div className="p-3 flex flex-col gap-1">
-            <div className="flex items-center gap-4 text-xl">
-              <button onClick={() => run("like-post", () => postApi.likePost(p.postId)).then(loadFeed)}>{p.postLike ? "❤️" : "🤍"}</button>
-              <button onClick={() => openPost(p.postId)}>💬</button>
-              <button className="ml-auto" onClick={() => run("add-post-favorite", () => postApi.addPostFavorite({ postId: p.postId }))}>🔖</button>
+          <div className="p-3.5 flex flex-col gap-2">
+            <div className="flex items-center gap-4">
+              <button className={"transition hover:opacity-60 " + (p.postLike ? "text-[#ed4956]" : "")} onClick={() => run("like-post", () => postApi.likePost(p.postId)).then(loadFeed)}>
+                <Icon name="heart" size={24} fill={p.postLike} />
+              </button>
+              <button className="transition hover:opacity-60" onClick={() => openPost(p.postId)}><Icon name="comment" size={24} /></button>
+              <button className="ml-auto transition hover:opacity-60" onClick={() => run("add-post-favorite", () => postApi.addPostFavorite({ postId: p.postId }))}><Icon name="bookmark" size={24} /></button>
             </div>
             <div className="text-sm font-semibold">{p.postLikeCount} отметок «Нравится»</div>
-            {p.title && <div className="text-sm"><b>@{p.userName}</b> {p.title}</div>}
+            {p.title && <div className="text-sm"><b>{p.userName}</b> {p.title}</div>}
             <button onClick={() => openPost(p.postId)} className="text-xs opacity-50 text-left">Смотреть все комментарии ({p.commentCount})</button>
           </div>
         </article>
@@ -220,16 +230,20 @@ function ReelsView({ openPost }: Ctx) {
     <Card title="Reels" right={<Btn variant="ghost" onClick={load}>Обновить</Btn>}>
       <div className="flex flex-col gap-4">
         {reels.map((r) => (
-          <div key={r.postId} className="border border-black/10 dark:border-white/15 rounded-xl overflow-hidden">
-            <div className="flex items-center gap-2 p-3">
-              <Avatar src={r.userImage} name={r.userName} size={32} />
-              <b className="text-sm">@{r.userName}</b>
-              {!r.isSubscriber && <Btn className="ml-auto py-0.5 text-xs" onClick={() => run("follow", () => followingApi.follow(r.userId))}>подписаться</Btn>}
+          <div key={r.postId} className="border border-black/[.07] dark:border-white/10 rounded-2xl overflow-hidden">
+            <div className="flex items-center gap-2.5 p-3">
+              <Avatar src={r.userImage} name={r.userName} size={34} />
+              <b className="text-sm">{r.userName}</b>
+              {!r.isSubscriber && <Btn className="ml-auto py-1 text-xs" onClick={() => run("follow", () => followingApi.follow(r.userId))}>Подписаться</Btn>}
             </div>
             <Media file={r.images} className="w-full max-h-[70vh] object-contain bg-black" />
-            <div className="p-3 text-sm flex gap-4">
-              <button onClick={() => run("like-post", () => postApi.likePost(r.postId)).then(load)}>{r.postLike ? "❤️" : "🤍"} {r.postLikeCount}</button>
-              <button onClick={() => openPost(r.postId)}>💬 {r.commentCount}</button>
+            <div className="p-3.5 text-sm flex items-center gap-5">
+              <button className={"flex items-center gap-1.5 transition hover:opacity-60 " + (r.postLike ? "text-[#ed4956]" : "")} onClick={() => run("like-post", () => postApi.likePost(r.postId)).then(load)}>
+                <Icon name="heart" size={22} fill={r.postLike} /> {r.postLikeCount}
+              </button>
+              <button className="flex items-center gap-1.5 transition hover:opacity-60" onClick={() => openPost(r.postId)}>
+                <Icon name="comment" size={22} /> {r.commentCount}
+              </button>
             </div>
           </div>
         ))}
@@ -355,21 +369,21 @@ function MessagesView({ myId }: { myId?: string }) {
         <Card title={`Чат #${active}`}>
           <div className="flex flex-col gap-2 max-h-72 overflow-y-auto">
             {msgs.map((m) => (
-              <div key={m.messageId} className={"flex gap-2 items-end " + (m.userId === myId ? "flex-row-reverse" : "")}>
+              <div key={m.messageId} className={"flex gap-2 items-end group " + (m.userId === myId ? "flex-row-reverse" : "")}>
                 <Avatar src={m.userImage} name={m.userName} size={24} />
-                <div className={"rounded-2xl px-3 py-1.5 text-sm max-w-[70%] " + (m.userId === myId ? "bg-blue-500 text-white" : "bg-black/10 dark:bg-white/15")}>
+                <div className={"rounded-2xl px-3.5 py-2 text-sm max-w-[70%] " + (m.userId === myId ? "bg-[#0095f6] text-white" : "bg-black/[.06] dark:bg-white/[.1]")}>
                   {m.messageText}
-                  {m.file && <Media file={m.file} className="mt-1 rounded max-h-40" />}
+                  {m.file && <Media file={m.file} className="mt-1 rounded-lg max-h-40" />}
                 </div>
-                {m.userId === myId && <button className="text-[10px] opacity-40" onClick={() => run("delete-message", () => chatApi.deleteMessage(m.messageId)).then(() => openChat(active))}>✕</button>}
+                {m.userId === myId && <button className="opacity-0 group-hover:opacity-50 hover:!opacity-100 transition text-[#ed4956]" title="Удалить" onClick={() => run("delete-message", () => chatApi.deleteMessage(m.messageId)).then(() => openChat(active))}><Icon name="trash" size={15} /></button>}
               </div>
             ))}
             {msgs.length === 0 && <div className="text-xs opacity-40">сообщений нет</div>}
           </div>
           <div className="flex gap-2 items-center">
-            <Input placeholder="сообщение…" value={text} onChange={(e) => setText(e.target.value)} className="flex-1" onKeyDown={(e) => e.key === "Enter" && send()} />
-            <label className="cursor-pointer text-lg">📎<input type="file" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label>
-            <Btn onClick={send}>➤</Btn>
+            <Input placeholder="Сообщение…" value={text} onChange={(e) => setText(e.target.value)} className="flex-1" onKeyDown={(e) => e.key === "Enter" && send()} />
+            <label className="cursor-pointer opacity-60 hover:opacity-100 transition" title="Прикрепить файл"><Icon name="attach" size={20} /><input type="file" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label>
+            <Btn onClick={send}><Icon name="send" size={16} /></Btn>
           </div>
           {file && <div className="text-xs opacity-60">файл: {file.name}</div>}
         </Card>
@@ -463,9 +477,13 @@ function ProfileView({ myId, openPost, openUser }: { myId?: string; openPost: (i
         <div className="text-[11px] opacity-40 break-all">myId: {myId}</div>
       </Card>
 
-      <div className="flex gap-2 justify-center text-sm">
-        <button onClick={() => setView("posts")} className={view === "posts" ? "font-bold underline" : "opacity-60"}>▦ Посты</button>
-        <button onClick={() => setView("favs")} className={view === "favs" ? "font-bold underline" : "opacity-60"}>🔖 Избранное</button>
+      <div className="flex justify-center gap-8 text-xs font-semibold uppercase tracking-wide border-t border-black/[.07] dark:border-white/10 pt-1">
+        <button onClick={() => setView("posts")} className={"flex items-center gap-1.5 py-3 -mt-px border-t transition " + (view === "posts" ? "border-foreground" : "border-transparent opacity-50")}>
+          <Icon name="grid" size={14} /> Посты
+        </button>
+        <button onClick={() => setView("favs")} className={"flex items-center gap-1.5 py-3 -mt-px border-t transition " + (view === "favs" ? "border-foreground" : "border-transparent opacity-50")}>
+          <Icon name="bookmark" size={14} /> Избранное
+        </button>
       </div>
       <div className="grid grid-cols-3 gap-1">
         {(view === "posts" ? posts : favs).map((p) => <PostThumb key={p.postId} post={p} onClick={() => openPost(p.postId)} />)}
@@ -561,7 +579,7 @@ function LocationsView() {
             <Btn onClick={() => run("add-Location", () => locationApi.addLocation(form)).then(load)}>Добавить</Btn>
           )}
         </div>
-        <div className="text-[11px] opacity-40">📍 Локации работают через доп-бэкенд (InstagramExtraApi) — update тоже.</div>
+        <div className="text-[11px] opacity-40">Локации работают через доп-бэкенд (InstagramExtraApi) — update тоже.</div>
       </Card>
 
       <Card title="Список" right={<Btn variant="ghost" onClick={load}>Обновить</Btn>}>
