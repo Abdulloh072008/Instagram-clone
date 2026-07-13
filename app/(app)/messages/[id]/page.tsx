@@ -1,0 +1,153 @@
+"use client";
+
+import { useEffect, useRef, useState, useCallback } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import Avatar from "@/components/Avatar";
+import Img from "@/components/Img";
+import { chats } from "@/lib/services";
+import { otherUser } from "@/components/ChatList";
+import { useAuth } from "@/lib/auth";
+import { timeAgo } from "@/lib/utils";
+import type { ChatMessage } from "@/lib/types";
+import { BackIcon, PhoneIcon, VideoIcon, ImageIcon, ShareIcon } from "@/components/Icons";
+
+export default function ConversationPage() {
+  const params = useParams<{ id: string }>();
+  const chatId = Number(params.id);
+  const { user } = useAuth();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [peer, setPeer] = useState<{ id: string; name: string; image: string | null } | null>(null);
+  const [text, setText] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const loadMessages = useCallback(async () => {
+    try {
+      const res = await chats.byId(chatId);
+      setMessages(res.data ?? []);
+    } catch {
+      /* ignore */
+    }
+  }, [chatId]);
+
+  // Resolve peer info from the chat list.
+  useEffect(() => {
+    chats
+      .all()
+      .then((res) => {
+        const chat = (res.data ?? []).find((c) => c.chatId === chatId);
+        if (chat) setPeer(otherUser(chat, user?.id));
+      })
+      .catch(() => {});
+  }, [chatId, user?.id]);
+
+  // Initial + polling load.
+  useEffect(() => {
+    loadMessages();
+    const t = setInterval(loadMessages, 5000);
+    return () => clearInterval(t);
+  }, [loadMessages]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  async function send(e: React.FormEvent) {
+    e.preventDefault();
+    if ((!text.trim() && !file) || sending) return;
+    setSending(true);
+    try {
+      await chats.send(chatId, text.trim(), file ?? undefined);
+      setText("");
+      setFile(null);
+      await loadMessages();
+    } catch {
+      /* ignore */
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="flex h-screen flex-col">
+      {/* header */}
+      <header className="flex items-center gap-3 border-b border-line px-4 py-3">
+        <Link href="/messages" className="md:hidden">
+          <BackIcon size={24} />
+        </Link>
+        {peer && (
+          <Link href={`/u/${peer.id}`} className="flex items-center gap-3">
+            <Avatar src={peer.image} name={peer.name} size={40} />
+            <span className="font-semibold">{peer.name}</span>
+          </Link>
+        )}
+        <div className="ml-auto flex items-center gap-5 text-neutral-200">
+          <PhoneIcon size={24} />
+          <VideoIcon size={24} />
+        </div>
+      </header>
+
+      {/* messages */}
+      <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-4">
+        {messages.length === 0 && (
+          <p className="my-auto text-center text-sm text-neutral-500">
+            No messages yet. Say hi 👋
+          </p>
+        )}
+        {messages.map((m) => {
+          const mine = m.userId === user?.id;
+          return (
+            <div key={m.messageId} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+              <div
+                className={`max-w-[70%] rounded-2xl px-3.5 py-2 text-sm ${
+                  mine ? "bg-ig-blue text-white" : "bg-neutral-800 text-neutral-100"
+                }`}
+              >
+                {m.file && (
+                  <Img src={m.file} alt="attachment" className="mb-1 max-h-64 rounded-lg object-cover" />
+                )}
+                {m.messageText && <p className="whitespace-pre-line break-words">{m.messageText}</p>}
+                <span className="mt-0.5 block text-[10px] opacity-60">
+                  {timeAgo(m.sendMassageDate)}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* composer */}
+      <form onSubmit={send} className="flex items-center gap-2 border-t border-line px-4 py-3">
+        <button type="button" onClick={() => fileRef.current?.click()} className="text-neutral-300">
+          <ImageIcon size={24} />
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+        />
+        <div className="flex flex-1 items-center gap-2 rounded-full border border-line px-4 py-2">
+          <input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={file ? `📎 ${file.name}` : "Message…"}
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-500"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={sending || (!text.trim() && !file)}
+          className="text-ig-blue disabled:opacity-40"
+        >
+          <ShareIcon size={24} />
+        </button>
+      </form>
+    </div>
+  );
+}

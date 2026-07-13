@@ -1,0 +1,55 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
+import ProfileView from "@/components/ProfileView";
+import { profiles, posts as postsApi } from "@/lib/services";
+import { useAuth } from "@/lib/auth";
+import type { Post, UserProfile } from "@/lib/types";
+
+export default function UserProfilePage() {
+  const params = useParams<{ id: string }>();
+  const id = params.id;
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [userPosts, setUserPosts] = useState<Post[]>([]);
+  const [following, setFollowing] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const isMe = user?.id === id;
+
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    Promise.all([
+      profiles.byId(id),
+      postsApi.byUser(id, 1, 30),
+      profiles.isFollowing(id).catch(() => ({ data: false })),
+    ])
+      .then(([p, posts, follow]) => {
+        setProfile(p.data);
+        setUserPosts(posts.data ?? []);
+        setFollowing(Boolean((follow as { data: boolean }).data));
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading || !profile) {
+    return (
+      <div className="flex h-[60vh] items-center justify-center">
+        <div className="h-7 w-7 animate-spin rounded-full border-2 border-neutral-700 border-t-white" />
+      </div>
+    );
+  }
+
+  return (
+    <ProfileView
+      userId={id}
+      profile={profile}
+      posts={userPosts}
+      isMe={isMe}
+      isFollowing={following}
+    />
+  );
+}
