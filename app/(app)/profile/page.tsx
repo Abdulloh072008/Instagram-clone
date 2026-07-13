@@ -13,10 +13,10 @@ export default function MyProfilePage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([profiles.me(), postsApi.mine(1, 30)])
+    Promise.all([profiles.me(), postsApi.mine()])
       .then(([p, posts]) => {
         setProfile(p.data);
-        setMyPosts(posts.data ?? []);
+        setMyPosts(posts ?? []);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
