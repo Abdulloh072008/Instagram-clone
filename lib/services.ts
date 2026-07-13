@@ -39,7 +39,7 @@ export const posts = {
     }),
 
   byId: (postId: number) =>
-    api.get<Envelope<Post>>("/Post/get-post-by-id", { postId }),
+    api.get<Envelope<Post>>("/Post/get-post-by-id", { id: postId }),
 
   like: (postId: number) => api.postJson("/Post/like-post", undefined, { postId }),
   view: (postId: number) => api.postJson("/Post/view-post", undefined, { postId }),
