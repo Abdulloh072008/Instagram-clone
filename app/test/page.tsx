@@ -210,11 +210,11 @@ function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
 
 // ── home: сторис + лента ──────────────────────────────────────────────────────
 
-function StoryRing({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
+function StoryRing({ children }: { children: ReactNode }) {
   return (
-    <button onClick={onClick} className="p-[2px] rounded-full bg-[linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)]">
+    <span className="inline-block p-[2px] rounded-full bg-[linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)]">
       <span className="block p-[2px] bg-white dark:bg-black rounded-full">{children}</span>
-    </button>
+    </span>
   );
 }
 
@@ -262,12 +262,12 @@ function HomeView({ openPost, openStory, openUser }: Ctx) {
       {groups.length > 0 && (
         <div className="flex gap-4 overflow-x-auto pb-4 mb-2 border-b border-[#dbdbdb] dark:border-[#262626] no-scrollbar">
           {groups.map((g) => (
-            <div key={g.userId} className="flex flex-col items-center gap-1 shrink-0 w-16">
-              <StoryRing onClick={() => (g.stories[0] ? openStory(g.stories[0].id) : openUser(g.userId))}>
+            <button key={g.userId} onClick={() => (g.stories[0] ? openStory(g.stories[0].id) : openUser(g.userId))} className="flex flex-col items-center gap-1 shrink-0 w-16">
+              <StoryRing>
                 <Avatar src={g.userImage} name={g.userName} size={56} />
               </StoryRing>
-              <span className="text-[11px] truncate max-w-16">{g.userName}</span>
-            </div>
+              <span className="text-[11px] truncate max-w-16 w-full">{g.userName}</span>
+            </button>
           ))}
         </div>
       )}
