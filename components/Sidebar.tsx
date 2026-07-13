@@ -186,21 +186,21 @@ export default function Sidebar() {
             <span className={`truncate text-sm ${labelCls}`}>{user?.userName}</span>
           </Link>
         </div>
-      </aside>
-
-      {/* Slide-out panel + click-away backdrop (desktop only) */}
-      {panel && (
-        <>
-          <div className="fixed inset-0 z-30 hidden md:block" onClick={closePanel} />
-          <div className="animate-fade fixed left-[72px] top-0 z-40 hidden h-screen w-[397px] max-w-[calc(100vw-72px)] overflow-hidden rounded-r-2xl border-r border-line bg-black shadow-2xl md:block">
+        {/* Slide-out panel — absolute so it tracks the (centered) sidebar
+            instead of the viewport edge, at any screen width. */}
+        {panel && (
+          <div className="animate-fade absolute left-full top-0 z-40 hidden h-screen w-[397px] max-w-[calc(100vw-72px)] overflow-hidden rounded-r-2xl border-r border-line bg-black shadow-2xl md:block">
             {panel === "search" ? (
               <SearchPanel onNavigate={closePanel} />
             ) : (
               <NotificationsPanel onNavigate={closePanel} />
             )}
           </div>
-        </>
-      )}
+        )}
+      </aside>
+
+      {/* click-away backdrop (desktop only) */}
+      {panel && <div className="fixed inset-0 z-30 hidden md:block" onClick={closePanel} />}
     </>
   );
 }
