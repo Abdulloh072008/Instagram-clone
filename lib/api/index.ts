@@ -20,6 +20,10 @@ export * as storyApi from "./story";
 export * as chatApi from "./chat";
 export * as followingApi from "./following";
 export * as locationApi from "./location";
+export * as callApi from "./call";
+export * as reactionApi from "./reaction";
+export type { Call, CallType, CallStatus } from "./call";
+export type { PostReactions, ReactionSummaryItem } from "./reaction";
 
 // Ядро — на случай кастомных запросов и обработки ошибок.
 export { request, ApiError } from "./http";

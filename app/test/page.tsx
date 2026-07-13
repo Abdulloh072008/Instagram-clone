@@ -8,6 +8,7 @@ import {
 } from "@/lib/api";
 import { LogProvider, LogDrawer, useLog, useResource, prefetch, Btn, Input, TextArea, Card, Avatar, Modal, Icon } from "./ui";
 import { PostModal, StoryViewer, PostThumb, Media } from "./components";
+import { AutoReel, CallModal, IncomingCallWatcher, EmojiButton, ReactionBar } from "./features";
 
 type Tab = "home" | "explore" | "reels" | "search" | "messages" | "create" | "profile" | "locations" | "account";
 
@@ -56,6 +57,7 @@ function Shell() {
   const [openPost, setOpenPost] = useState<number | null>(null);
   const [openStory, setOpenStory] = useState<number | null>(null);
   const [openUser, setOpenUser] = useState<string | null>(null);
+  const [callWith, setCallWith] = useState<{ id: string; name: string } | null>(null);
 
   const refresh = useCallback(() => {
     setAuthed(authToken.isAuthenticated());
@@ -81,10 +83,13 @@ function Shell() {
   const ctx = { myId: me?.userId, openPost: setOpenPost, openStory: setOpenStory, openUser: setOpenUser };
   const wide = tab === "explore" || tab === "profile";
 
+  const bottomKeys: Tab[] = ["home", "search", "reels", "explore", "profile"];
+  const topKeys: Tab[] = ["messages", "create", "locations", "account"];
+
   return (
-    <div className="flex min-h-screen bg-white dark:bg-black text-[#262626] dark:text-[#f5f5f5]">
-      {/* сайдбар (как в веб-инстаграме) */}
-      <nav className="sticky top-0 h-screen w-[72px] xl:w-[245px] shrink-0 border-r border-[#dbdbdb] dark:border-[#262626] px-3 py-5 flex flex-col">
+    <div className="min-h-screen bg-white dark:bg-black text-[#262626] dark:text-[#f5f5f5] md:flex">
+      {/* десктопный сайдбар */}
+      <nav className="hidden md:flex sticky top-0 h-screen w-[72px] xl:w-[245px] shrink-0 border-r border-[#dbdbdb] dark:border-[#262626] px-3 py-5 flex-col">
         <div className="px-2.5 mb-6 h-10 flex items-center">
           <span className="hidden xl:block text-2xl" style={{ fontFamily: "'Segoe Script','Brush Script MT',cursive" }}>Instagram</span>
           <span className="xl:hidden"><Icon name="reels" size={26} /></span>
@@ -93,12 +98,8 @@ function Shell() {
           {NAV.map((n) => {
             const active = tab === n.key;
             return (
-              <button
-                key={n.key}
-                onClick={() => setTab(n.key)}
-                title={n.label}
-                className={"flex items-center gap-4 rounded-lg px-3 py-3 text-left transition hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] active:opacity-60 " + (active ? "font-bold" : "font-normal")}
-              >
+              <button key={n.key} onClick={() => setTab(n.key)} title={n.label}
+                className={"flex items-center gap-4 rounded-lg px-3 py-3 text-left transition hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] active:opacity-60 " + (active ? "font-bold" : "font-normal")}>
                 <Icon name={n.icon} size={26} fill={active} />
                 <span className="hidden xl:inline text-[16px] leading-none">{n.label}</span>
               </button>
@@ -111,22 +112,44 @@ function Shell() {
         </button>
       </nav>
 
+      {/* мобильный верхний бар */}
+      <header className="md:hidden fixed top-0 inset-x-0 z-30 h-12 px-4 flex items-center bg-white/95 dark:bg-black/95 backdrop-blur border-b border-[#dbdbdb] dark:border-[#262626]">
+        <span className="text-xl" style={{ fontFamily: "'Segoe Script','Brush Script MT',cursive" }}>Instagram</span>
+        <div className="ml-auto flex items-center gap-5">
+          {topKeys.map((k) => {
+            const n = NAV.find((x) => x.key === k)!;
+            return <button key={k} onClick={() => setTab(k)} title={n.label}><Icon name={n.icon} size={24} fill={tab === k} /></button>;
+          })}
+        </div>
+      </header>
+
       {/* контент */}
-      <main className={"flex-1 w-full mx-auto px-4 pt-6 pb-[45vh] " + (wide ? "max-w-[935px]" : "max-w-[470px]")}>
+      <main className={"flex-1 w-full mx-auto px-2 sm:px-4 pt-16 md:pt-6 pb-24 md:pb-[45vh] " + (wide ? "max-w-[935px]" : "max-w-[470px]")}>
         {tab === "home" && <HomeView {...ctx} />}
         {tab === "explore" && <ExploreView {...ctx} />}
         {tab === "reels" && <ReelsView {...ctx} />}
         {tab === "search" && <SearchView {...ctx} />}
-        {tab === "messages" && <MessagesView myId={me?.userId} />}
+        {tab === "messages" && <MessagesView myId={me?.userId} openUser={setOpenUser} startCall={setCallWith} />}
         {tab === "create" && <CreateView />}
         {tab === "profile" && <ProfileView myId={me?.userId} openPost={setOpenPost} openUser={setOpenUser} />}
         {tab === "locations" && <LocationsView />}
         {tab === "account" && <AccountView myId={me?.userId} onLogout={refresh} />}
       </main>
 
+      {/* мобильная нижняя навигация */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-30 h-14 flex items-center justify-around bg-white dark:bg-black border-t border-[#dbdbdb] dark:border-[#262626]">
+        {bottomKeys.map((k) => {
+          const n = NAV.find((x) => x.key === k)!;
+          if (k === "profile") return <button key={k} onClick={() => setTab(k)}><span className={"block rounded-full " + (tab === k ? "ring-2 ring-current p-[1px]" : "")}><Avatar name={me?.userName} size={26} /></span></button>;
+          return <button key={k} onClick={() => setTab(k)} title={n.label}><Icon name={n.icon} size={26} fill={tab === k} /></button>;
+        })}
+      </nav>
+
       {openPost != null && <PostModal postId={openPost} myId={me?.userId} onClose={() => setOpenPost(null)} />}
       {openStory != null && <StoryViewer storyId={openStory} myId={me?.userId} onClose={() => setOpenStory(null)} />}
-      {openUser != null && <UserProfileModal userId={openUser} myId={me?.userId} onClose={() => setOpenUser(null)} openPost={setOpenPost} />}
+      {openUser != null && <UserProfileModal userId={openUser} myId={me?.userId} onClose={() => setOpenUser(null)} startCall={setCallWith} />}
+      {callWith && me && <CallModal me={me} peerId={callWith.id} peerName={callWith.name} onClose={() => setCallWith(null)} />}
+      {me && <IncomingCallWatcher me={me} />}
     </div>
   );
 }
@@ -203,6 +226,7 @@ function CommentBox({ postId, onDone }: { postId: number; onDone: () => void }) 
       className="flex items-center gap-2 border-t border-[#efefef] dark:border-[#1a1a1a] pt-2.5 mt-1"
       onSubmit={(e) => { e.preventDefault(); if (!text.trim()) return; run("add-comment", () => postApi.addComment({ comment: text, postId })).then(() => { setText(""); onDone(); }); }}
     >
+      <EmojiButton onPick={(em) => setText((t) => t + em)} />
       <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Добавьте комментарий…" className="flex-1 bg-transparent text-sm outline-none placeholder:text-[#8e8e8e]" />
       <button type="submit" disabled={!text.trim()} className="text-sm font-semibold text-[#0095f6] disabled:opacity-40">Опубликовать</button>
     </form>
@@ -275,6 +299,7 @@ function HomeView({ openPost, openStory, openUser }: Ctx) {
             <div className="text-sm font-semibold">{p.postLikeCount} отметок «Нравится»</div>
             {p.title && <div className="text-sm leading-snug"><b>{p.userName}</b> {p.title}</div>}
             {p.commentCount > 0 && <button onClick={() => openPost(p.postId)} className="text-sm text-[#8e8e8e] text-left">Смотреть все комментарии ({p.commentCount})</button>}
+            <ReactionBar postId={p.postId} />
             <CommentBox postId={p.postId} onDone={feed.reload} />
           </div>
         </article>
@@ -306,35 +331,16 @@ function ReelsView({ openPost }: Ctx) {
   const { data, loading, reload } = useResource("reels", () => run("get-reels", REELS_LOAD));
   const reels = data?.data ?? [];
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="flex flex-col items-center gap-4 h-[calc(100vh-8rem)] overflow-y-auto snap-y snap-mandatory no-scrollbar">
       {loading && reels.length === 0 && <div className="w-full max-w-[380px] aspect-[9/16] rounded-xl bg-black/[.06] dark:bg-white/[.06] animate-pulse" />}
       {reels.map((r) => (
-        <div key={r.postId} className="relative w-full max-w-[380px] aspect-[9/16] rounded-xl overflow-hidden bg-black">
-          <Media file={r.images} className="absolute inset-0 w-full h-full object-cover" />
-          {/* правый рельс действий */}
-          <div className="absolute right-2.5 bottom-24 flex flex-col items-center gap-5 text-white">
-            <button className="flex flex-col items-center gap-1 hover:opacity-70 transition" onClick={() => run("like-post", () => postApi.likePost(r.postId)).then(reload)}>
-              <Icon name="heart" size={28} fill={r.postLike} className={r.postLike ? "text-[#ed4956]" : ""} />
-              <span className="text-xs">{r.postLikeCount}</span>
-            </button>
-            <button className="flex flex-col items-center gap-1 hover:opacity-70 transition" onClick={() => openPost(r.postId)}>
-              <Icon name="comment" size={28} />
-              <span className="text-xs">{r.commentCount}</span>
-            </button>
-          </div>
-          {/* нижняя инфа об авторе */}
-          <div className="absolute left-0 bottom-0 inset-x-0 p-3.5 bg-gradient-to-t from-black/70 to-transparent text-white">
-            <div className="flex items-center gap-2.5">
-              <Avatar src={r.userImage} name={r.userName} size={32} />
-              <b className="text-sm">{r.userName}</b>
-              {!r.isSubscriber && (
-                <button className="ml-1 px-2 py-1 text-xs font-semibold border border-white/70 rounded-md hover:bg-white/10 transition" onClick={() => run("follow", () => followingApi.follow(r.userId))}>
-                  Подписаться
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+        <AutoReel
+          key={r.postId}
+          reel={r}
+          onLike={() => run("like-post", () => postApi.likePost(r.postId)).then(reload)}
+          onComments={() => openPost(r.postId)}
+          onFollow={() => run("follow", () => followingApi.follow(r.userId))}
+        />
       ))}
       {!loading && reels.length === 0 && <div className="text-sm text-[#8e8e8e] py-10">Reels нет</div>}
     </div>
@@ -409,7 +415,7 @@ function SearchView({ openUser }: Ctx) {
 
 // ── messages ─────────────────────────────────────────────────────────────────
 
-function MessagesView({ myId }: { myId?: string }) {
+function MessagesView({ myId, startCall }: { myId?: string; openUser: (id: string) => void; startCall: (p: { id: string; name: string }) => void }) {
   const { run } = useLog();
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [active, setActive] = useState<number | null>(null);
@@ -426,7 +432,11 @@ function MessagesView({ myId }: { myId?: string }) {
     if (active == null) return;
     run("send-message", () => chatApi.sendMessage({ chatId: active, messageText: text, file: file ?? undefined })).then(() => { setText(""); setFile(null); openChat(active); });
   };
-  const other = (c: ChatSummary) => (c.sendUserId === myId ? { name: c.receiveUserName, img: c.receiveUserImage } : { name: c.sendUserName, img: c.sendUserImage });
+  const other = (c: ChatSummary) =>
+    c.sendUserId === myId
+      ? { id: c.receiveUserId, name: c.receiveUserName, img: c.receiveUserImage }
+      : { id: c.sendUserId, name: c.sendUserName, img: c.sendUserImage };
+  const activePeer = active != null ? (() => { const c = chats.find((x) => x.chatId === active); return c ? other(c) : null; })() : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -455,7 +465,19 @@ function MessagesView({ myId }: { myId?: string }) {
       </Card>
 
       {active != null && (
-        <Card title={`Чат #${active}`}>
+        <Card
+          title={activePeer ? activePeer.name : `Чат #${active}`}
+          right={activePeer && (
+            <div className="flex items-center gap-3">
+              <button title="Аудиозвонок" className="hover:opacity-60 transition" onClick={() => startCall({ id: activePeer.id, name: activePeer.name })}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.2.2 2.4.6 3.6.1.4 0 .8-.3 1z" /></svg>
+              </button>
+              <button title="Видеозвонок" className="hover:opacity-60 transition" onClick={() => startCall({ id: activePeer.id, name: activePeer.name })}>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="13" height="12" rx="2" /><path d="m22 8-5 4 5 4z" /></svg>
+              </button>
+            </div>
+          )}
+        >
           <div className="flex flex-col gap-2 max-h-72 overflow-y-auto">
             {msgs.map((m) => (
               <div key={m.messageId} className={"flex gap-2 items-end group " + (m.userId === myId ? "flex-row-reverse" : "")}>
@@ -470,6 +492,7 @@ function MessagesView({ myId }: { myId?: string }) {
             {msgs.length === 0 && <div className="text-xs opacity-40">сообщений нет</div>}
           </div>
           <div className="flex gap-2 items-center">
+            <EmojiButton onPick={(em) => setText((t) => t + em)} />
             <Input placeholder="Сообщение…" value={text} onChange={(e) => setText(e.target.value)} className="flex-1" onKeyDown={(e) => e.key === "Enter" && send()} />
             <label className="cursor-pointer opacity-60 hover:opacity-100 transition" title="Прикрепить файл"><Icon name="attach" size={20} /><input type="file" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} /></label>
             <Btn onClick={send}><Icon name="send" size={16} /></Btn>
@@ -608,7 +631,7 @@ function ProfileView({ myId, openPost, openUser }: { myId?: string; openPost: (i
 
 // ── чужой профиль ─────────────────────────────────────────────────────────────
 
-function UserProfileModal({ userId, myId, onClose, openPost }: { userId: string; myId?: string; onClose: () => void; openPost: (id: number) => void }) {
+function UserProfileModal({ userId, myId, onClose, startCall }: { userId: string; myId?: string; onClose: () => void; startCall: (p: { id: string; name: string }) => void }) {
   const { run } = useLog();
   const [prof, setProf] = useState<UserProfile | null>(null);
   const [isFollow, setIsFollow] = useState<boolean | null>(null);
@@ -632,15 +655,20 @@ function UserProfileModal({ userId, myId, onClose, openPost }: { userId: string;
               <span><b>{prof?.subscribersCount ?? 0}</b> подпис.</span>
             </div>
           </div>
-          <button onClick={onClose} className="ml-auto text-xl">×</button>
+          <button onClick={onClose} className="ml-auto opacity-60 hover:opacity-100 transition"><Icon name="x" size={20} /></button>
         </div>
         <div className="opacity-70 text-sm">{prof?.about}</div>
         {userId !== myId && (
-          isFollow ? (
-            <Btn variant="ghost" onClick={() => run("unfollow", () => followingApi.unfollow(userId)).then(load)}>Отписаться</Btn>
-          ) : (
-            <Btn onClick={() => run("follow", () => followingApi.follow(userId)).then(load)}>Подписаться</Btn>
-          )
+          <div className="flex gap-2">
+            {isFollow ? (
+              <Btn variant="ghost" className="flex-1" onClick={() => run("unfollow", () => followingApi.unfollow(userId)).then(load)}>Отписаться</Btn>
+            ) : (
+              <Btn className="flex-1" onClick={() => run("follow", () => followingApi.follow(userId)).then(load)}>Подписаться</Btn>
+            )}
+            <Btn variant="ghost" onClick={() => startCall({ id: userId, name: prof?.userName ?? "user" })} title="Видеозвонок">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="13" height="12" rx="2" /><path d="m22 8-5 4 5 4z" /></svg>
+            </Btn>
+          </div>
         )}
         <div className="text-[11px] opacity-40 break-all">userId: {userId}</div>
       </div>

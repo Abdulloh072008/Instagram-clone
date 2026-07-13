@@ -160,7 +160,7 @@ export function LogDrawer() {
   const { entries, clear } = useLog();
   const [open, setOpen] = useState(true);
   return (
-    <div className="fixed bottom-0 right-0 z-40 w-full sm:w-[430px]">
+    <div className="fixed bottom-14 md:bottom-0 right-0 z-40 w-full sm:w-[430px]">
       <div className="m-3 rounded-2xl border border-black/10 dark:border-white/15 bg-background/90 backdrop-blur-md shadow-2xl">
         <div className="flex items-center gap-2 px-4 py-2.5 border-b border-black/5 dark:border-white/10">
           <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-2 text-sm font-semibold">
