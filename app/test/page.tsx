@@ -359,11 +359,16 @@ function ReelsView({ openPost }: Ctx) {
   const { data, loading, mutate } = useResource("reels", () => run("get-reels", REELS_LOAD));
   const reels = data?.data ?? [];
 
-  // На вкладке Reels скрываем прокрутку всего документа — остаётся только
-  // внутренний скролл ленты рилсов (у него скроллбар уже скрыт).
+  // На вкладке Reels скрываем прокрутку всего документа (скроллбар висит на
+  // <html>, не на <body>) — остаётся только внутренний скролл ленты рилсов,
+  // у которого полоса уже спрятана классом no-scrollbar.
   useEffect(() => {
+    const html = document.documentElement;
+    const prevHtml = html.style.overflow;
+    const prevBody = document.body.style.overflow;
+    html.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
+    return () => { html.style.overflow = prevHtml; document.body.style.overflow = prevBody; };
   }, []);
 
   const like = (r: Reel) => {
