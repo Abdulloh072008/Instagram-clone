@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useForm } from "react-hook-form";
 import Link from "next/link";
 import Avatar from "./Avatar";
 import Img from "./Img";
@@ -24,9 +25,14 @@ export default function PostCard({ post }: { post: Post }) {
   const [comments, setComments] = useState<PostComment[]>(post.comments ?? []);
   const [commentCount, setCommentCount] = useState(post.commentCount);
   const [showAllComments, setShowAllComments] = useState(false);
-  const [draft, setDraft] = useState("");
   const [slide, setSlide] = useState(0);
-  const [posting, setPosting] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    watch,
+    reset,
+    formState: { isSubmitting },
+  } = useForm<{ draft: string }>({ defaultValues: { draft: "" } });
 
   const images = post.images?.length ? post.images : [];
 
@@ -51,11 +57,9 @@ export default function PostCard({ post }: { post: Post }) {
     }
   }
 
-  async function submitComment(e: React.FormEvent) {
-    e.preventDefault();
+  const submitComment = handleSubmit(async ({ draft }) => {
     const text = draft.trim();
-    if (!text || posting) return;
-    setPosting(true);
+    if (!text) return;
     try {
       await postsApi.addComment(post.postId, text);
       const optimistic: PostComment = {
@@ -68,13 +72,11 @@ export default function PostCard({ post }: { post: Post }) {
       };
       setComments((c) => [optimistic, ...c]);
       setCommentCount((c) => c + 1);
-      setDraft("");
+      reset();
     } catch {
       /* ignore */
-    } finally {
-      setPosting(false);
     }
-  }
+  });
 
   const visibleComments = showAllComments ? comments : comments.slice(0, 2);
 
@@ -198,14 +200,13 @@ export default function PostCard({ post }: { post: Post }) {
         className="mt-2 flex items-center gap-2 border-t border-line px-3 py-2.5"
       >
         <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          {...register("draft")}
           placeholder="Add a comment…"
           className="flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-500"
         />
         <button
           type="submit"
-          disabled={!draft.trim() || posting}
+          disabled={!watch("draft")?.trim() || isSubmitting}
           className="text-sm font-semibold text-ig-blue disabled:opacity-40"
         >
           Post

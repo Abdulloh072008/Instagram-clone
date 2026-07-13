@@ -1,48 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useForm } from "react-hook-form";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 
+const FIELDS = [
+  { k: "email", ph: "Email", type: "email" },
+  { k: "fullName", ph: "Full Name", type: "text" },
+  { k: "userName", ph: "Username", type: "text" },
+  { k: "password", ph: "Password", type: "password" },
+  { k: "confirmPassword", ph: "Confirm Password", type: "password" },
+] as const;
+
+type Fields = Record<(typeof FIELDS)[number]["k"], string>;
+
 export default function RegisterPage() {
-  const { register, login } = useAuth();
+  const { register: registerUser, login } = useAuth();
   const router = useRouter();
-  const [form, setForm] = useState({
-    userName: "",
-    fullName: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-  });
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setError,
+    formState: { errors, isSubmitting, isValid },
+  } = useForm<Fields>({ mode: "onChange" });
 
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    if (form.password !== form.confirmPassword) {
-      setError("Passwords do not match");
-      return;
-    }
-    setBusy(true);
+  const onSubmit = handleSubmit(async (form) => {
     try {
-      await register(form);
+      await registerUser(form);
       // Auto-login after successful registration.
       await login(form.userName.trim(), form.password);
       router.replace("/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed");
-    } finally {
-      setBusy(false);
+      setError("root", { message: err instanceof Error ? err.message : "Registration failed" });
     }
-  }
-
-  const disabled =
-    busy || !form.userName || !form.email || !form.password || !form.confirmPassword || !form.fullName;
+  });
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-8">
@@ -53,31 +46,34 @@ export default function RegisterPage() {
             Sign up to see photos and videos from your friends.
           </p>
           <form onSubmit={onSubmit} className="flex flex-col gap-2.5">
-            {[
-              { k: "email", ph: "Email", type: "email" },
-              { k: "fullName", ph: "Full Name", type: "text" },
-              { k: "userName", ph: "Username", type: "text" },
-              { k: "password", ph: "Password", type: "password" },
-              { k: "confirmPassword", ph: "Confirm Password", type: "password" },
-            ].map((f) => (
+            {FIELDS.map((f) => (
               <input
                 key={f.k}
                 type={f.type}
                 autoCapitalize="none"
-                value={form[f.k as keyof typeof form]}
-                onChange={set(f.k as keyof typeof form)}
                 placeholder={f.ph}
+                {...register(f.k, {
+                  required: true,
+                  validate:
+                    f.k === "confirmPassword"
+                      ? (v) => v === watch("password") || "Passwords do not match"
+                      : undefined,
+                })}
                 className="rounded-lg border border-line bg-neutral-900 px-3 py-2.5 text-sm outline-none focus:border-neutral-500"
               />
             ))}
             <button
               type="submit"
-              disabled={disabled}
+              disabled={isSubmitting || !isValid}
               className="mt-2 rounded-lg bg-ig-blue py-2.5 text-sm font-semibold text-white transition hover:bg-ig-blue-hover disabled:opacity-50"
             >
-              {busy ? "Loading…" : "Sign up"}
+              {isSubmitting ? "Loading…" : "Sign up"}
             </button>
-            {error && <p className="mt-1 text-center text-sm text-ig-red">{error}</p>}
+            {(errors.confirmPassword || errors.root) && (
+              <p className="mt-1 text-center text-sm text-ig-red">
+                {errors.confirmPassword?.message ?? errors.root?.message}
+              </p>
+            )}
           </form>
         </div>
         <div className="mt-3 rounded-2xl border border-line bg-elevated py-5 text-center text-sm">
