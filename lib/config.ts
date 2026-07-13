@@ -1,8 +1,7 @@
 // Central config for the Instagram clone frontend.
 // Backend: https://instagram-api.softclub.tj/swagger/index.html
 
-export const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL ?? "https://instagram-api.softclub.tj";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 export const IMAGE_BASE = `${API_BASE}/images`;
 
 /** Build a full URL for an image filename returned by the API. */
