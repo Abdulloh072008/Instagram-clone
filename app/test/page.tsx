@@ -594,7 +594,7 @@ function ProfileView({ myId, openPost, openUser }: { myId?: string; openPost: (i
 
   const loadAll = useCallback(() => {
     run("get-my-profile", () => userProfileApi.getMyProfile()).then((r) => { setMe(r.data); setAbout(r.data.about ?? ""); }).catch(() => {});
-    run("get-my-posts", () => postApi.getMyPosts()).then((r) => setPosts((Array.isArray(r.data) ? r.data : []) as Post[])).catch(() => {});
+    run("get-my-posts", () => postApi.getMyPosts()).then((r) => setPosts(Array.isArray(r) ? r : [])).catch(() => {});
     run("get-post-favorites", () => userProfileApi.getPostFavorites({ pageNumber: 1, pageSize: 18 })).then((r) => setFavs(r.data)).catch(() => {});
     if (myId) {
       run("get-subscribers", () => followingApi.getSubscribers(myId)).then((r) => setSubers(r.data)).catch(() => {});
