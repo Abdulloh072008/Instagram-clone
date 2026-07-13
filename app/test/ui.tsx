@@ -32,6 +32,17 @@ export function useResource<T>(key: string, loader: () => Promise<T>, ttl = DEFA
   const [data, setData] = useState<T | undefined>(() => _cache.get(key)?.v as T | undefined);
   const [loading, setLoading] = useState<boolean>(() => !_cache.has(key));
 
+  // Обновление данных, которое пишет и в React-state, и в кэш — чтобы
+  // оптимистичные правки (лайк и т.п.) не откатывались при смене вкладок.
+  const mutate = useCallback((updater: T | ((prev: T | undefined) => T | undefined)) => {
+    setData((prev) => {
+      const next = typeof updater === "function" ? (updater as (p: T | undefined) => T | undefined)(prev) : updater;
+      if (next !== undefined) _cache.set(key, { t: _cache.get(key)?.t ?? Date.now(), v: next });
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
   const reload = useCallback(async () => {
     setLoading(!_cache.has(key));
     try {
@@ -56,7 +67,7 @@ export function useResource<T>(key: string, loader: () => Promise<T>, ttl = DEFA
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
-  return { data, loading, reload, setData };
+  return { data, loading, reload, setData, mutate };
 }
 
 // ── иконки (линейные SVG, без эмодзи) ────────────────────────────────────────

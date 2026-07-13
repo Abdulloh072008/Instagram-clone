@@ -46,6 +46,21 @@ export function PostModal({ postId, myId, onClose, onChanged }: { postId: number
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postId]);
 
+  // like-post и add-post-favorite на бэке — переключатели. Меняем состояние
+  // оптимистично (мгновенно), запрос шлём в фоне, без перезапроса поста.
+  const toggleLike = () => {
+    if (!post) return;
+    const willUnlike = post.postLike;
+    setPost((p) => (p ? { ...p, postLike: !p.postLike, postLikeCount: Math.max(0, p.postLikeCount + (p.postLike ? -1 : 1)) } : p));
+    run(willUnlike ? "снять лайк (like-post)" : "лайк (like-post)", () => postApi.likePost(postId)).then(() => onChanged?.()).catch(() => {});
+  };
+  const toggleFav = () => {
+    if (!post) return;
+    const willRemove = post.postFavorite;
+    setPost((p) => (p ? { ...p, postFavorite: !p.postFavorite } : p));
+    run(willRemove ? "убрать из избранного" : "в избранное", () => postApi.addPostFavorite({ postId })).catch(() => {});
+  };
+
   const imgs = post ? (Array.isArray(post.images) ? post.images : [post.images as unknown as string]) : [];
 
   return (
@@ -89,8 +104,8 @@ export function PostModal({ postId, myId, onClose, onChanged }: { postId: number
           <div className="p-3 border-t border-black/[.07] dark:border-white/10 flex flex-col gap-2.5">
             <div className="flex items-center gap-4">
               <button
-                className={"transition hover:opacity-70 " + (post?.postLike ? "text-[#ed4956]" : "")}
-                onClick={() => run("like-post", () => postApi.likePost(postId)).then(() => { load(); onChanged?.(); })}
+                className={"transition hover:opacity-70 active:scale-90 " + (post?.postLike ? "text-[#ed4956]" : "")}
+                onClick={toggleLike}
               >
                 <Icon name="heart" size={24} fill={post?.postLike} />
               </button>
@@ -98,8 +113,8 @@ export function PostModal({ postId, myId, onClose, onChanged }: { postId: number
                 <Icon name="comment" size={24} />
               </button>
               <button
-                className={"transition hover:opacity-70 " + (post?.postFavorite ? "text-foreground" : "")}
-                onClick={() => run("add-post-favorite", () => postApi.addPostFavorite({ postId })).then(load)}
+                className="transition hover:opacity-70 active:scale-90"
+                onClick={toggleFav}
               >
                 <Icon name="bookmark" size={24} fill={post?.postFavorite} />
               </button>
@@ -135,12 +150,20 @@ export function PostModal({ postId, myId, onClose, onChanged }: { postId: number
 export function StoryViewer({ storyId, myId, onClose, onChanged }: { storyId: number; myId?: string; onClose: () => void; onChanged?: () => void }) {
   const { run } = useLog();
   const [story, setStory] = useState<Story | null>(null);
+  const [liked, setLiked] = useState(false);
 
   useEffect(() => {
     run("add-story-view", () => storyApi.addStoryView(storyId)).catch(() => {});
-    run("GetStoryById", () => storyApi.getStoryById(storyId)).then((r) => setStory(r.data)).catch(() => {});
+    run("GetStoryById", () => storyApi.getStoryById(storyId)).then((r) => { setStory(r.data); setLiked(Boolean(r.data?.viewerDto?.viewLike)); }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storyId]);
+
+  // LikeStory на бэке — переключатель. Меняем сердце мгновенно.
+  const toggleLike = () => {
+    const willUnlike = liked;
+    setLiked((v) => !v);
+    run(willUnlike ? "снять лайк сторис (LikeStory)" : "лайк сторис (LikeStory)", () => storyApi.likeStory(storyId)).catch(() => {});
+  };
 
   return (
     <Modal onClose={onClose}>
@@ -156,7 +179,7 @@ export function StoryViewer({ storyId, myId, onClose, onChanged }: { storyId: nu
           <button onClick={onClose} className="ml-auto opacity-80 hover:opacity-100 transition"><Icon name="x" size={22} /></button>
         </div>
         <div className="absolute bottom-0 inset-x-0 p-3.5 flex items-center gap-4 bg-gradient-to-t from-black/70 to-transparent text-white">
-          <button className="hover:opacity-70 transition" onClick={() => run("LikeStory", () => storyApi.likeStory(storyId))}><Icon name="heart" size={26} /></button>
+          <button className={"hover:opacity-70 transition active:scale-90 " + (liked ? "text-[#ed4956]" : "")} onClick={toggleLike}><Icon name="heart" size={26} fill={liked} /></button>
           {story?.userId === myId && (
             <button className="ml-auto text-[#ed4956] hover:opacity-70 transition" title="Удалить" onClick={() => run("DeleteStory", () => storyApi.deleteStory(storyId)).then(() => { onChanged?.(); onClose(); })}>
               <Icon name="trash" size={22} />

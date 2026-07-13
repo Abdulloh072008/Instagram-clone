@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, type ReactNode } from "react";
 import {
   accountApi, userApi, userProfileApi, postApi, storyApi, chatApi, followingApi, locationApi,
-  authToken, getCurrentUser, ApiError, type Post, type User, type UserProfile,
+  authToken, getCurrentUser, ApiError, type Post, type Reel, type User, type UserProfile,
   type Subscriber, type ChatSummary, type ChatMessage, type Location, type CurrentUser,
 } from "@/lib/api";
 import { LogProvider, LogDrawer, useLog, useResource, prefetch, Btn, Input, TextArea, Card, Avatar, Modal, Icon } from "./ui";
@@ -267,18 +267,21 @@ function HomeView({ openPost, openStory, openUser }: Ctx) {
   const groups = stories.data ?? [];
   const posts = feed.data?.data ?? [];
 
-  // Оптимистичный патч поста в кэше ленты (без перезапроса — основной API
-  // на get-posts иногда отдаёт 500). Сам лайк/избранное шлём в фоне.
+  // Оптимистичный патч поста (в state и в кэше). Сам лайк/избранное шлём в
+  // фоне: like-post и add-post-favorite на бэке — переключатели (повторный
+  // вызов снимает). Не перезапрашиваем ленту (get-posts иногда отдаёт 500).
   const patch = (postId: number, upd: (p: Post) => Post) =>
-    feed.setData((prev) => (prev ? { ...prev, data: prev.data.map((x) => (x.postId === postId ? upd(x) : x)) } : prev));
+    feed.mutate((prev) => (prev ? { ...prev, data: prev.data.map((x) => (x.postId === postId ? upd(x) : x)) } : prev));
 
   const toggleLike = (p: Post) => {
+    const willUnlike = p.postLike;
     patch(p.postId, (x) => ({ ...x, postLike: !x.postLike, postLikeCount: Math.max(0, x.postLikeCount + (x.postLike ? -1 : 1)) }));
-    run("like-post", () => postApi.likePost(p.postId)).catch(() => {});
+    run(willUnlike ? "снять лайк (like-post)" : "лайк (like-post)", () => postApi.likePost(p.postId)).catch(() => {});
   };
   const toggleFav = (p: Post) => {
+    const willRemove = p.postFavorite;
     patch(p.postId, (x) => ({ ...x, postFavorite: !x.postFavorite }));
-    run("add-post-favorite", () => postApi.addPostFavorite({ postId: p.postId })).catch(() => {});
+    run(willRemove ? "убрать из избранного" : "в избранное", () => postApi.addPostFavorite({ postId: p.postId })).catch(() => {});
   };
 
   return (
@@ -353,8 +356,15 @@ function ExploreView({ openPost }: Ctx) {
 
 function ReelsView({ openPost }: Ctx) {
   const { run } = useLog();
-  const { data, loading, reload } = useResource("reels", () => run("get-reels", REELS_LOAD));
+  const { data, loading, mutate } = useResource("reels", () => run("get-reels", REELS_LOAD));
   const reels = data?.data ?? [];
+
+  const like = (r: Reel) => {
+    const willUnlike = r.postLike;
+    mutate((prev) => (prev ? { ...prev, data: prev.data.map((x) => (x.postId === r.postId ? { ...x, postLike: !x.postLike, postLikeCount: Math.max(0, x.postLikeCount + (x.postLike ? -1 : 1)) } : x)) } : prev));
+    run(willUnlike ? "снять лайк (like-post)" : "лайк (like-post)", () => postApi.likePost(r.postId)).catch(() => {});
+  };
+
   return (
     <div className="flex flex-col items-center gap-4 h-[calc(100vh-8rem)] overflow-y-auto snap-y snap-mandatory no-scrollbar">
       {loading && reels.length === 0 && <div className="w-full max-w-[380px] aspect-[9/16] rounded-xl bg-black/[.06] dark:bg-white/[.06] animate-pulse" />}
@@ -362,9 +372,9 @@ function ReelsView({ openPost }: Ctx) {
         <AutoReel
           key={r.postId}
           reel={r}
-          onLike={() => run("like-post", () => postApi.likePost(r.postId)).then(reload).catch(() => {})}
+          onLike={() => like(r)}
           onComments={() => openPost(r.postId)}
-          onFollow={() => run("follow", () => followingApi.follow(r.userId))}
+          onFollow={() => run("follow", () => followingApi.follow(r.userId)).catch(() => {})}
         />
       ))}
       {!loading && reels.length === 0 && <div className="text-sm text-[#8e8e8e] py-10">Reels нет</div>}
