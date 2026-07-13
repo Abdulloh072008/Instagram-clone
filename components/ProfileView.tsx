@@ -6,9 +6,9 @@ import { useEffect, useState } from "react";
 import Avatar from "./Avatar";
 import PostGrid from "./PostGrid";
 import FollowButton from "./FollowButton";
-import { chats, reposts as repostsApi } from "@/lib/services";
+import { chats, reposts as repostsApi, posts as postsApi } from "@/lib/services";
 import { formatCount } from "@/lib/utils";
-import type { Post, Repost, UserProfile } from "@/lib/types";
+import type { Post, UserProfile } from "@/lib/types";
 import { GridIcon, ReelsIcon, RepostIcon, TaggedIcon, SettingsIcon } from "./Icons";
 
 export default function ProfileView({
@@ -26,14 +26,19 @@ export default function ProfileView({
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<"posts" | "reels" | "reposts" | "tagged">("posts");
-  const [reposts, setReposts] = useState<Repost[] | null>(null);
+  const [reposts, setReposts] = useState<Post[] | null>(null);
   const [followers, setFollowers] = useState(profile.subscribersCount);
 
   useEffect(() => {
     if (tab !== "reposts" || reposts !== null) return;
+    // ponytail: resolve each repost's postId to a full Post so they render like real posts.
     repostsApi
       .byUser(userId)
-      .then((res) => setReposts(res.data ?? []))
+      .then((res) => res.data ?? [])
+      .then((list) =>
+        Promise.all(list.map((r) => postsApi.byId(r.postId).then((p) => p.data).catch(() => null))),
+      )
+      .then((list) => setReposts(list.filter((p): p is Post => !!p)))
       .catch(() => setReposts([]));
   }, [tab, reposts, userId]);
   const fullName =
@@ -139,23 +144,7 @@ export default function ProfileView({
           reposts === null ? (
             <p className="py-16 text-center text-neutral-500">Loading…</p>
           ) : reposts.length > 0 ? (
-            // ponytail: Repost DTO carries no images — list metadata, link to the original author.
-            <ul className="divide-y divide-line">
-              {reposts.map((r) => (
-                <li key={r.postId} className="flex items-center gap-3 py-3">
-                  <RepostIcon size={18} className="text-green-500" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm">
-                      Reposted from{" "}
-                      <Link href={`/u/${r.originalAuthorId}`} className="font-semibold hover:opacity-70">
-                        {r.originalAuthorName}
-                      </Link>
-                    </p>
-                    {r.caption && <p className="truncate text-sm text-neutral-400">{r.caption}</p>}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <PostGrid posts={reposts} />
           ) : (
             <p className="py-16 text-center text-neutral-500">No reposts yet</p>
           )
