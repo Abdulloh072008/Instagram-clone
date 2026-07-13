@@ -2,15 +2,18 @@
 
 import { useState } from "react";
 import { imageUrl } from "@/lib/config";
+import { isVideo } from "@/lib/utils";
 
 interface ImgProps {
   src?: string | null;
   alt?: string;
   className?: string;
+  /** Show native video controls (feed/modal). Off = muted poster frame (grid thumbnails). */
+  controls?: boolean;
 }
 
-/** <img> with API base resolution and a graceful dark fallback. */
-export default function Img({ src, alt = "", className = "" }: ImgProps) {
+/** <img>/<video> with API base resolution and a graceful dark fallback. */
+export default function Img({ src, alt = "", className = "", controls = false }: ImgProps) {
   const [broken, setBroken] = useState(false);
   const url = imageUrl(src);
 
@@ -25,6 +28,21 @@ export default function Img({ src, alt = "", className = "" }: ImgProps) {
           <path d="m21 15-5-5L5 21" />
         </svg>
       </div>
+    );
+  }
+
+  if (isVideo(src)) {
+    return (
+      <video
+        src={url}
+        className={className}
+        controls={controls}
+        muted={!controls}
+        loop={!controls}
+        playsInline
+        preload="metadata"
+        onError={() => setBroken(true)}
+      />
     );
   }
 

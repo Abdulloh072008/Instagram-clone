@@ -192,7 +192,7 @@ export default function PostCard({
       {/* media */}
       <div className="relative aspect-square w-full overflow-hidden bg-neutral-950 md:rounded-none">
         {images.length > 0 ? (
-          <Img src={images[slide]} alt={post.title ?? ""} className="h-full w-full object-cover" />
+          <Img src={images[slide]} alt={post.title ?? ""} controls className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full items-center justify-center px-6 text-center text-lg text-neutral-300">
             {post.content || post.title || "…"}
