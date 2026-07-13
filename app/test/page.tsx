@@ -6,7 +6,7 @@ import {
   authToken, getCurrentUser, ApiError, type Post, type Reel, type User, type UserProfile,
   type Subscriber, type ChatSummary, type ChatMessage, type Location, type CurrentUser,
 } from "@/lib/api";
-import { LogProvider, LogDrawer, useLog, useResource, prefetch, Btn, Input, TextArea, Card, Avatar, Modal, Icon } from "./ui";
+import { LogProvider, useLog, useResource, prefetch, Btn, Input, TextArea, Card, Avatar, Modal, Icon } from "./ui";
 import { PostModal, StoryViewer, PostThumb, Media } from "./components";
 import { AutoReel, CallModal, IncomingCallWatcher, EmojiButton, ReactionBar } from "./features";
 
@@ -45,7 +45,6 @@ export default function Page() {
   return (
     <LogProvider>
       <Shell />
-      <LogDrawer />
     </LogProvider>
   );
 }
@@ -135,7 +134,7 @@ function Shell() {
       </header>
 
       {/* контент */}
-      <main className={"flex-1 w-full mx-auto px-2 sm:px-4 pt-16 md:pt-6 pb-24 md:pb-[45vh] " + (wide ? "max-w-[935px]" : "max-w-[470px]")}>
+      <main className={"flex-1 w-full mx-auto px-2 sm:px-4 pt-16 md:pt-6 pb-24 md:pb-10 " + (wide ? "max-w-[935px]" : "max-w-[470px]")}>
         {tab === "home" && <HomeView {...ctx} />}
         {tab === "explore" && <ExploreView {...ctx} />}
         {tab === "reels" && <ReelsView {...ctx} />}
