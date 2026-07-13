@@ -1,6 +1,7 @@
 // Typed wrappers around every backend endpoint the UI uses.
 import { api } from "./client";
 import type {
+  AppNotification,
   ChatListItem,
   ChatMessage,
   Envelope,
@@ -115,6 +116,19 @@ export const follows = {
     api.postJson("/FollowingRelationShip/add-following-relation-ship", undefined, { followingUserId }),
   unfollow: (followingUserId: string) =>
     api.del("/FollowingRelationShip/delete-following-relation-ship", { followingUserId }),
+};
+
+// ---------- Notifications (BACKEND-SPEC.md §1 — pending on backend) ----------
+export const notifications = {
+  list: (pageNumber = 1, pageSize = 20) =>
+    api.get<Paged<AppNotification>>("/Notification/get-notifications", {
+      PageNumber: pageNumber,
+      PageSize: pageSize,
+    }),
+  unreadCount: () => api.get<Envelope<number>>("/Notification/get-unread-count"),
+  markRead: (notificationId: number) =>
+    api.postJson("/Notification/mark-read", undefined, { notificationId }),
+  markAllRead: () => api.postJson("/Notification/mark-all-read"),
 };
 
 // ---------- Chat / DM ----------

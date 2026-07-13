@@ -111,6 +111,23 @@ export interface ChatMessage {
   file: string | null;
 }
 
+export type NotificationType = "like" | "comment" | "follow" | "mention";
+
+// Matches BACKEND-SPEC.md §1 (Notification controller — pending on the backend).
+export interface AppNotification {
+  notificationId: number;
+  type: NotificationType;
+  fromUserId: string;
+  fromUserName: string;
+  fromUserImage: string | null;
+  postId?: number | null;
+  postImage?: string | null; // optional thumbnail if the backend includes it
+  commentId?: number | null;
+  text?: string | null;
+  isRead: boolean;
+  createdAt: string;
+}
+
 /** Decoded fields we care about from the JWT payload. */
 export interface AuthUser {
   id: string; // sid claim
