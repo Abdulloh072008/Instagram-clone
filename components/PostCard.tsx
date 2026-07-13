@@ -5,7 +5,8 @@ import { useForm } from "react-hook-form";
 import Link from "next/link";
 import Avatar from "./Avatar";
 import Img from "./Img";
-import { posts as postsApi } from "@/lib/services";
+import { posts as postsApi, reposts as repostsApi } from "@/lib/services";
+import { useAuth } from "@/lib/auth";
 import { timeAgo, formatCount } from "@/lib/utils";
 import type { Post, PostComment } from "@/lib/types";
 import {
@@ -13,12 +14,15 @@ import {
   HeartFilled,
   CommentIcon,
   ShareIcon,
+  RepostIcon,
   BookmarkIcon,
   BookmarkFilled,
   MoreIcon,
 } from "./Icons";
 
 export default function PostCard({ post }: { post: Post }) {
+  const { user } = useAuth();
+  const [reposted, setReposted] = useState(false);
   const [liked, setLiked] = useState(post.postLike);
   const [likeCount, setLikeCount] = useState(post.postLikeCount);
   const [saved, setSaved] = useState(post.postFavorite);
@@ -45,6 +49,19 @@ export default function PostCard({ post }: { post: Post }) {
     } catch {
       setLiked(!next);
       setLikeCount((c) => c + (next ? -1 : 1));
+    }
+  }
+
+  // ponytail: optimistic toggle, initial repost state not prefetched to avoid a request per feed post.
+  async function toggleRepost() {
+    if (!user) return;
+    const next = !reposted;
+    setReposted(next);
+    try {
+      if (next) await repostsApi.add(post, user.id, user.userName);
+      else await repostsApi.remove(user.id, post.postId);
+    } catch {
+      setReposted(!next);
     }
   }
 
@@ -155,6 +172,12 @@ export default function PostCard({ post }: { post: Post }) {
         </button>
         <button className="transition hover:text-neutral-400">
           <ShareIcon size={24} />
+        </button>
+        <button
+          onClick={toggleRepost}
+          className={`transition active:scale-90 ${reposted ? "text-green-500" : "hover:text-neutral-400"}`}
+        >
+          <RepostIcon size={25} />
         </button>
         <button onClick={toggleSave} className="ml-auto transition active:scale-90">
           {saved ? <BookmarkFilled size={24} /> : <BookmarkIcon size={24} />}

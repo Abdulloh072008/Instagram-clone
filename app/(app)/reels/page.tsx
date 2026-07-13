@@ -5,16 +5,26 @@ import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import Img from "@/components/Img";
 import { imageUrl } from "@/lib/config";
-import { posts as postsApi } from "@/lib/services";
+import { posts as postsApi, reposts as repostsApi } from "@/lib/services";
+import { useAuth } from "@/lib/auth";
 import { formatCount } from "@/lib/utils";
 import type { Post } from "@/lib/types";
-import { HeartIcon, HeartFilled, CommentIcon, ShareIcon, MoreIcon } from "@/components/Icons";
+import {
+  HeartIcon,
+  HeartFilled,
+  CommentIcon,
+  ShareIcon,
+  RepostIcon,
+  MoreIcon,
+} from "@/components/Icons";
 
 const VIDEO_RX = /\.(mp4|webm|mov|m4v)$/i;
 
 function Reel({ post }: { post: Post }) {
+  const { user } = useAuth();
   const [liked, setLiked] = useState(post.postLike);
   const [count, setCount] = useState(post.postLikeCount);
+  const [reposted, setReposted] = useState(false);
   const media = post.images?.[0];
   const isVideo = media ? VIDEO_RX.test(media) : false;
 
@@ -27,6 +37,19 @@ function Reel({ post }: { post: Post }) {
     } catch {
       setLiked(!next);
       setCount((c) => c + (next ? -1 : 1));
+    }
+  }
+
+  // ponytail: optimistic toggle; initial repost state not prefetched.
+  async function repost() {
+    if (!user) return;
+    const next = !reposted;
+    setReposted(next);
+    try {
+      if (next) await repostsApi.add(post, user.id, user.userName);
+      else await repostsApi.remove(user.id, post.postId);
+    } catch {
+      setReposted(!next);
     }
   }
 
@@ -57,6 +80,12 @@ function Reel({ post }: { post: Post }) {
           <button className="flex flex-col items-center">
             <CommentIcon size={30} />
             <span className="mt-1 text-xs font-semibold">{formatCount(post.commentCount)}</span>
+          </button>
+          <button
+            onClick={repost}
+            className={reposted ? "text-green-500" : undefined}
+          >
+            <RepostIcon size={28} />
           </button>
           <button>
             <ShareIcon size={28} />

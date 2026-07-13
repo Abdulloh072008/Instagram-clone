@@ -1,11 +1,13 @@
 // Typed wrappers around every backend endpoint the UI uses.
-import { api } from "./client";
+import { api, extraApi } from "./client";
 import type {
   ChatListItem,
   ChatMessage,
   Envelope,
   Paged,
   Post,
+  Repost,
+  RepostState,
   UserListItem,
   UserProfile,
   UserStories,
@@ -57,6 +59,24 @@ export const posts = {
   },
 
   remove: (postId: number) => api.del("/Post/delete-post", { postId }),
+};
+
+// ---------- Reposts (extra backend) ----------
+export const reposts = {
+  add: (post: Post, userId: string, userName: string, caption = "") =>
+    extraApi.postJson("/Repost/add", {
+      userId,
+      userName,
+      postId: post.postId,
+      originalAuthorId: post.userId,
+      originalAuthorName: post.userName,
+      caption,
+    }),
+  remove: (userId: string, postId: number) =>
+    extraApi.del("/Repost/remove", { userId, postId }),
+  state: (postId: number, userId: string) =>
+    extraApi.get<Envelope<RepostState>>("/Repost/get", { postId, userId }),
+  byUser: (userId: string) => extraApi.get<Envelope<Repost[]>>("/Repost/user", { userId }),
 };
 
 // ---------- Stories ----------

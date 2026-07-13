@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Avatar from "./Avatar";
 import PostGrid from "./PostGrid";
 import FollowButton from "./FollowButton";
-import { chats } from "@/lib/services";
+import { chats, reposts as repostsApi } from "@/lib/services";
 import { formatCount } from "@/lib/utils";
-import type { Post, UserProfile } from "@/lib/types";
-import { GridIcon, ReelsIcon, TaggedIcon, SettingsIcon } from "./Icons";
+import type { Post, Repost, UserProfile } from "@/lib/types";
+import { GridIcon, ReelsIcon, RepostIcon, TaggedIcon, SettingsIcon } from "./Icons";
 
 export default function ProfileView({
   userId,
@@ -25,8 +25,17 @@ export default function ProfileView({
   isFollowing?: boolean;
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<"posts" | "reels" | "tagged">("posts");
+  const [tab, setTab] = useState<"posts" | "reels" | "reposts" | "tagged">("posts");
+  const [reposts, setReposts] = useState<Repost[] | null>(null);
   const [followers, setFollowers] = useState(profile.subscribersCount);
+
+  useEffect(() => {
+    if (tab !== "reposts" || reposts !== null) return;
+    repostsApi
+      .byUser(userId)
+      .then((res) => setReposts(res.data ?? []))
+      .catch(() => setReposts([]));
+  }, [tab, reposts, userId]);
   const fullName =
     [profile.firstName, profile.lastName].filter(Boolean).join(" ") || profile.userName;
 
@@ -103,6 +112,7 @@ export default function ProfileView({
         {[
           { k: "posts", label: "POSTS", Icon: GridIcon },
           { k: "reels", label: "REELS", Icon: ReelsIcon },
+          { k: "reposts", label: "REPOSTS", Icon: RepostIcon },
           { k: "tagged", label: "TAGGED", Icon: TaggedIcon },
         ].map(({ k, label, Icon }) => (
           <button
@@ -124,6 +134,30 @@ export default function ProfileView({
             <PostGrid posts={posts} />
           ) : (
             <p className="py-16 text-center text-neutral-500">No posts yet</p>
+          )
+        ) : tab === "reposts" ? (
+          reposts === null ? (
+            <p className="py-16 text-center text-neutral-500">Loading…</p>
+          ) : reposts.length > 0 ? (
+            // ponytail: Repost DTO carries no images — list metadata, link to the original author.
+            <ul className="divide-y divide-line">
+              {reposts.map((r) => (
+                <li key={r.postId} className="flex items-center gap-3 py-3">
+                  <RepostIcon size={18} className="text-green-500" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm">
+                      Reposted from{" "}
+                      <Link href={`/u/${r.originalAuthorId}`} className="font-semibold hover:opacity-70">
+                        {r.originalAuthorName}
+                      </Link>
+                    </p>
+                    {r.caption && <p className="truncate text-sm text-neutral-400">{r.caption}</p>}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="py-16 text-center text-neutral-500">No reposts yet</p>
           )
         ) : (
           <p className="py-16 text-center text-neutral-500">Nothing here yet</p>
