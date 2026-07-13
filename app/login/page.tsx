@@ -1,37 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 
+type Fields = { userName: string; password: string };
+
 export default function LoginPage() {
   const { login, user, loading } = useAuth();
   const router = useRouter();
-  const [userName, setUserName] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors, isSubmitting, isValid },
+  } = useForm<Fields>({ mode: "onChange" });
 
   useEffect(() => {
     if (!loading && user) router.replace("/");
   }, [loading, user, router]);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setError("");
-    setBusy(true);
+  const onSubmit = handleSubmit(async ({ userName, password }) => {
     try {
       await login(userName.trim(), password);
       router.replace("/");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Логин ноком шуд");
-    } finally {
-      setBusy(false);
+      setError("root", { message: err instanceof Error ? err.message : "Логин ноком шуд" });
     }
-  }
-
-  const disabled = busy || !userName || !password;
+  });
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
@@ -40,27 +38,27 @@ export default function LoginPage() {
           <h1 className="mb-8 text-center text-4xl font-semibold tracking-tight">Instagram</h1>
           <form onSubmit={onSubmit} className="flex flex-col gap-2.5">
             <input
-              value={userName}
-              onChange={(e) => setUserName(e.target.value)}
+              {...register("userName", { required: true })}
               placeholder="Username"
               autoCapitalize="none"
               className="rounded-lg border border-line bg-neutral-900 px-3 py-2.5 text-sm outline-none focus:border-neutral-500"
             />
             <input
+              {...register("password", { required: true })}
               type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
               placeholder="Password"
               className="rounded-lg border border-line bg-neutral-900 px-3 py-2.5 text-sm outline-none focus:border-neutral-500"
             />
             <button
               type="submit"
-              disabled={disabled}
+              disabled={isSubmitting || !isValid}
               className="mt-2 rounded-lg bg-ig-blue py-2.5 text-sm font-semibold text-white transition hover:bg-ig-blue-hover disabled:opacity-50"
             >
-              {busy ? "Loading…" : "Log in"}
+              {isSubmitting ? "Loading…" : "Log in"}
             </button>
-            {error && <p className="mt-1 text-center text-sm text-ig-red">{error}</p>}
+            {errors.root && (
+              <p className="mt-1 text-center text-sm text-ig-red">{errors.root.message}</p>
+            )}
           </form>
         </div>
         <div className="mt-3 rounded-2xl border border-line bg-elevated py-5 text-center text-sm">

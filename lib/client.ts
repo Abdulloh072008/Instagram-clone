@@ -1,3 +1,4 @@
+import axios, { AxiosError } from "axios";
 import { API_BASE, TOKEN_KEY } from "./config";
 
 export class ApiError extends Error {
@@ -29,59 +30,56 @@ export function clearToken() {
   document.cookie = `${TOKEN_KEY}=; path=/; max-age=0`;
 }
 
+const http = axios.create({ baseURL: API_BASE });
+
+// Attach the bearer token to every request.
+http.interceptors.request.use((config) => {
+  const token = getToken();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+// Normalize failures into ApiError; a 401 means the session is dead — drop the token.
+http.interceptors.response.use(
+  (res) => res,
+  (error: AxiosError<{ errors?: string[]; title?: string; message?: string }>) => {
+    const status = error.response?.status ?? 0;
+    const data = error.response?.data;
+    const errors = data?.errors?.length
+      ? data.errors
+      : [data?.title || data?.message || error.message || "Request failed"];
+    if (status === 401) clearToken();
+    throw new ApiError(errors[0], status, errors);
+  },
+);
+
 type Query = Record<string, string | number | boolean | null | undefined>;
 
-function buildUrl(path: string, query?: Query): string {
-  const url = new URL(API_BASE + path);
-  if (query) {
-    for (const [k, v] of Object.entries(query)) {
-      if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
-    }
-  }
-  return url.toString();
-}
-
-async function parse(res: Response): Promise<unknown> {
-  const text = await res.text();
-  const json = text ? JSON.parse(text) : null;
-  if (!res.ok) {
-    const errors: string[] = json?.errors?.length
-      ? json.errors
-      : [json?.title || json?.message || res.statusText || "Request failed"];
-    // 401 -> session is dead, drop the token so guards can react.
-    if (res.status === 401) clearToken();
-    throw new ApiError(errors[0], res.status, errors);
-  }
-  return json;
-}
-
-async function send(path: string, init: RequestInit, query?: Query): Promise<unknown> {
-  const token = getToken();
-  const headers = new Headers(init.headers);
-  if (token) headers.set("Authorization", `Bearer ${token}`);
-  const res = await fetch(buildUrl(path, query), { ...init, headers });
-  return parse(res);
-}
-
-function jsonBody(body: unknown): RequestInit {
-  return { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+// axios keeps null/"" params; drop them like the old buildUrl did.
+function clean(query?: Query) {
+  if (!query) return undefined;
+  return Object.fromEntries(
+    Object.entries(query).filter(([, v]) => v !== undefined && v !== null && v !== ""),
+  );
 }
 
 /** Low-level verbs. Return the raw parsed JSON (envelope or paginated object). */
 export const api = {
-  get: <T = unknown>(path: string, query?: Query) => send(path, { method: "GET" }, query) as Promise<T>,
+  get: <T = unknown>(path: string, query?: Query) =>
+    http.get<T>(path, { params: clean(query) }).then((r) => r.data),
 
   postJson: <T = unknown>(path: string, body?: unknown, query?: Query) =>
-    send(path, { method: "POST", ...(body !== undefined ? jsonBody(body) : {}) }, query) as Promise<T>,
+    http.post<T>(path, body, { params: clean(query) }).then((r) => r.data),
 
   putJson: <T = unknown>(path: string, body?: unknown, query?: Query) =>
-    send(path, { method: "PUT", ...(body !== undefined ? jsonBody(body) : {}) }, query) as Promise<T>,
+    http.put<T>(path, body, { params: clean(query) }).then((r) => r.data),
 
-  del: <T = unknown>(path: string, query?: Query) => send(path, { method: "DELETE" }, query) as Promise<T>,
+  del: <T = unknown>(path: string, query?: Query) =>
+    http.delete<T>(path, { params: clean(query) }).then((r) => r.data),
 
   postForm: <T = unknown>(path: string, form: FormData, query?: Query) =>
-    send(path, { method: "POST", body: form }, query) as Promise<T>,
+    http.post<T>(path, form, { params: clean(query) }).then((r) => r.data),
 
   putForm: <T = unknown>(path: string, form: FormData, query?: Query) =>
-    send(path, { method: "PUT", body: form }, query) as Promise<T>,
+    http.put<T>(path, form, { params: clean(query) }).then((r) => r.data),
 };

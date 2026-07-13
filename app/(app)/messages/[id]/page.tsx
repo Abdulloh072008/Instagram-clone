@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useForm } from "react-hook-form";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import Avatar from "@/components/Avatar";
@@ -18,11 +19,16 @@ export default function ConversationPage() {
   const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [peer, setPeer] = useState<{ id: string; name: string; image: string | null } | null>(null);
-  const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const {
+    register,
+    handleSubmit,
+    watch,
+    reset,
+    formState: { isSubmitting },
+  } = useForm<{ text: string }>({ defaultValues: { text: "" } });
 
   const loadMessages = useCallback(async () => {
     try {
@@ -55,21 +61,17 @@ export default function ConversationPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  async function send(e: React.FormEvent) {
-    e.preventDefault();
-    if ((!text.trim() && !file) || sending) return;
-    setSending(true);
+  const send = handleSubmit(async ({ text }) => {
+    if (!text.trim() && !file) return;
     try {
       await chats.send(chatId, text.trim(), file ?? undefined);
-      setText("");
+      reset();
       setFile(null);
       await loadMessages();
     } catch {
       /* ignore */
-    } finally {
-      setSending(false);
     }
-  }
+  });
 
   return (
     <div className="flex h-screen flex-col">
@@ -134,15 +136,14 @@ export default function ConversationPage() {
         />
         <div className="flex flex-1 items-center gap-2 rounded-full border border-line px-4 py-2">
           <input
-            value={text}
-            onChange={(e) => setText(e.target.value)}
+            {...register("text")}
             placeholder={file ? `📎 ${file.name}` : "Message…"}
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-500"
           />
         </div>
         <button
           type="submit"
-          disabled={sending || (!text.trim() && !file)}
+          disabled={isSubmitting || (!watch("text")?.trim() && !file)}
           className="text-ig-blue disabled:opacity-40"
         >
           <ShareIcon size={24} />

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import { profiles } from "@/lib/services";
@@ -10,19 +11,22 @@ export default function EditProfilePage() {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [about, setAbout] = useState("");
-  const [gender, setGender] = useState(0); // 0 = Male, 1 = Female (backend enum)
   const [preview, setPreview] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { isSubmitting },
+  } = useForm<{ about: string; gender: number }>();
 
   useEffect(() => {
     profiles.me().then((p) => {
       setProfile(p.data);
-      setAbout(p.data.about ?? "");
-      setGender(p.data.gender === "Female" ? 1 : 0);
+      // 0 = Male, 1 = Female (backend enum)
+      reset({ about: p.data.about ?? "", gender: p.data.gender === "Female" ? 1 : 0 });
     });
-  }, []);
+  }, [reset]);
 
   async function onPickImage(f?: File) {
     if (!f) return;
@@ -34,19 +38,16 @@ export default function EditProfilePage() {
     }
   }
 
-  async function save() {
-    setBusy(true);
+  const save = handleSubmit(async ({ about, gender }) => {
     setMsg("");
     try {
-      await profiles.update(about, gender);
+      await profiles.update(about, Number(gender));
       setMsg("Saved ✓");
       setTimeout(() => router.push("/profile"), 600);
     } catch {
       setMsg("Save failed");
-    } finally {
-      setBusy(false);
     }
-  }
+  });
 
   if (!profile) {
     return (
@@ -82,8 +83,7 @@ export default function EditProfilePage() {
 
       <label className="mb-1 block text-sm font-semibold">Bio</label>
       <textarea
-        value={about}
-        onChange={(e) => setAbout(e.target.value)}
+        {...register("about")}
         rows={3}
         placeholder="Tell people about yourself…"
         className="mb-5 w-full resize-none rounded-lg border border-line bg-neutral-900 px-3 py-2.5 text-sm outline-none focus:border-neutral-500"
@@ -91,8 +91,7 @@ export default function EditProfilePage() {
 
       <label className="mb-1 block text-sm font-semibold">Gender</label>
       <select
-        value={gender}
-        onChange={(e) => setGender(Number(e.target.value))}
+        {...register("gender")}
         className="mb-6 w-full rounded-lg border border-line bg-neutral-900 px-3 py-2.5 text-sm outline-none focus:border-neutral-500"
       >
         <option value={0}>Male</option>
@@ -102,10 +101,10 @@ export default function EditProfilePage() {
       <div className="flex items-center gap-3">
         <button
           onClick={save}
-          disabled={busy}
+          disabled={isSubmitting}
           className="rounded-lg bg-ig-blue px-5 py-2 text-sm font-semibold text-white hover:bg-ig-blue-hover disabled:opacity-50"
         >
-          {busy ? "Saving…" : "Submit"}
+          {isSubmitting ? "Saving…" : "Submit"}
         </button>
         {msg && <span className="text-sm text-neutral-400">{msg}</span>}
       </div>

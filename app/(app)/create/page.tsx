@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { posts as postsApi } from "@/lib/services";
 import { ImageIcon, CloseIcon } from "@/components/Icons";
@@ -10,10 +11,12 @@ export default function CreatePage() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors, isSubmitting },
+  } = useForm<{ title: string; content: string }>();
 
   function addFiles(list: FileList | null) {
     if (!list) return;
@@ -28,22 +31,18 @@ export default function CreatePage() {
     setPreviews((p) => p.filter((_, idx) => idx !== i));
   }
 
-  async function submit() {
+  const submit = handleSubmit(async ({ title, content }) => {
     if (files.length === 0) {
-      setError("Add at least one image");
+      setError("root", { message: "Add at least one image" });
       return;
     }
-    setBusy(true);
-    setError("");
     try {
       await postsApi.create(title, content, files);
       router.push("/profile");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create post");
-    } finally {
-      setBusy(false);
+      setError("root", { message: err instanceof Error ? err.message : "Failed to create post" });
     }
-  }
+  });
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
@@ -51,10 +50,10 @@ export default function CreatePage() {
         <h1 className="text-lg font-semibold">Create new post</h1>
         <button
           onClick={submit}
-          disabled={busy || files.length === 0}
+          disabled={isSubmitting || files.length === 0}
           className="rounded-lg bg-ig-blue px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-ig-blue-hover disabled:opacity-50"
         >
-          {busy ? "Sharing…" : "Share"}
+          {isSubmitting ? "Sharing…" : "Share"}
         </button>
       </div>
 
@@ -107,19 +106,17 @@ export default function CreatePage() {
       </div>
 
       <input
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        {...register("title")}
         placeholder="Title"
         className="mt-4 w-full rounded-lg border border-line bg-neutral-900 px-3 py-2.5 text-sm outline-none focus:border-neutral-500"
       />
       <textarea
-        value={content}
-        onChange={(e) => setContent(e.target.value)}
+        {...register("content")}
         placeholder="Write a caption…"
         rows={4}
         className="mt-2 w-full resize-none rounded-lg border border-line bg-neutral-900 px-3 py-2.5 text-sm outline-none focus:border-neutral-500"
       />
-      {error && <p className="mt-2 text-sm text-ig-red">{error}</p>}
+      {errors.root && <p className="mt-2 text-sm text-ig-red">{errors.root.message}</p>}
     </div>
   );
 }
