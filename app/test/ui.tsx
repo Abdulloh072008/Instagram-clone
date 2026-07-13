@@ -38,6 +38,9 @@ export function useResource<T>(key: string, loader: () => Promise<T>, ttl = DEFA
       const v = await loader();
       _cache.set(key, { t: Date.now(), v });
       setData(v);
+    } catch {
+      // не роняем UI, если обновление не удалось (напр. основной API отдал 500);
+      // ошибка уже попала в лог через run(), оставляем предыдущие данные.
     } finally {
       setLoading(false);
     }

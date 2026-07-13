@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, type ReactNode } from "react";
 import {
   accountApi, userApi, userProfileApi, postApi, storyApi, chatApi, followingApi, locationApi,
-  authToken, getCurrentUser, type Post, type User, type UserProfile,
+  authToken, getCurrentUser, ApiError, type Post, type User, type UserProfile,
   type Subscriber, type ChatSummary, type ChatMessage, type Location, type CurrentUser,
 } from "@/lib/api";
 import { LogProvider, LogDrawer, useLog, useResource, prefetch, Btn, Input, TextArea, Card, Avatar, Modal, Icon } from "./ui";
@@ -67,6 +67,17 @@ function Shell() {
   // чтобы SSR и первый клиентский рендер совпали (иначе рассинхрон гидрации).
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => refresh(), [refresh]);
+
+  // Основной API иногда отдаёт 500 (напр. флаки get-posts). Такие ошибки уже
+  // видны в логе запросов — глушим необработанные ApiError, чтобы они не
+  // показывались красным оверлеем поверх приложения.
+  useEffect(() => {
+    const onReject = (e: PromiseRejectionEvent) => {
+      if (e.reason instanceof ApiError) e.preventDefault();
+    };
+    window.addEventListener("unhandledrejection", onReject);
+    return () => window.removeEventListener("unhandledrejection", onReject);
+  }, []);
 
   // Фоновый префетч: пока смотришь главную, «Интересное»/«Reels» уже грузятся
   // в кэш — при переходе появляются мгновенно.
@@ -256,6 +267,20 @@ function HomeView({ openPost, openStory, openUser }: Ctx) {
   const groups = stories.data ?? [];
   const posts = feed.data?.data ?? [];
 
+  // Оптимистичный патч поста в кэше ленты (без перезапроса — основной API
+  // на get-posts иногда отдаёт 500). Сам лайк/избранное шлём в фоне.
+  const patch = (postId: number, upd: (p: Post) => Post) =>
+    feed.setData((prev) => (prev ? { ...prev, data: prev.data.map((x) => (x.postId === postId ? upd(x) : x)) } : prev));
+
+  const toggleLike = (p: Post) => {
+    patch(p.postId, (x) => ({ ...x, postLike: !x.postLike, postLikeCount: Math.max(0, x.postLikeCount + (x.postLike ? -1 : 1)) }));
+    run("like-post", () => postApi.likePost(p.postId)).catch(() => {});
+  };
+  const toggleFav = (p: Post) => {
+    patch(p.postId, (x) => ({ ...x, postFavorite: !x.postFavorite }));
+    run("add-post-favorite", () => postApi.addPostFavorite({ postId: p.postId })).catch(() => {});
+  };
+
   return (
     <div className="flex flex-col">
       {/* сторис */}
@@ -288,11 +313,11 @@ function HomeView({ openPost, openStory, openUser }: Ctx) {
           </button>
           <div className="flex flex-col gap-1.5 pt-2">
             <div className="flex items-center gap-4">
-              <button className={"transition hover:opacity-50 " + (p.postLike ? "text-[#ed4956]" : "")} onClick={() => run("like-post", () => postApi.likePost(p.postId)).then(feed.reload)}>
+              <button className={"transition hover:opacity-50 active:scale-90 " + (p.postLike ? "text-[#ed4956]" : "")} onClick={() => toggleLike(p)}>
                 <Icon name="heart" size={26} fill={p.postLike} />
               </button>
               <button className="transition hover:opacity-50" onClick={() => openPost(p.postId)}><Icon name="comment" size={26} /></button>
-              <button className="ml-auto transition hover:opacity-50" onClick={() => run("add-post-favorite", () => postApi.addPostFavorite({ postId: p.postId }))}>
+              <button className="ml-auto transition hover:opacity-50 active:scale-90" onClick={() => toggleFav(p)}>
                 <Icon name="bookmark" size={26} fill={p.postFavorite} />
               </button>
             </div>
@@ -337,7 +362,7 @@ function ReelsView({ openPost }: Ctx) {
         <AutoReel
           key={r.postId}
           reel={r}
-          onLike={() => run("like-post", () => postApi.likePost(r.postId)).then(reload)}
+          onLike={() => run("like-post", () => postApi.likePost(r.postId)).then(reload).catch(() => {})}
           onComments={() => openPost(r.postId)}
           onFollow={() => run("follow", () => followingApi.follow(r.userId))}
         />
