@@ -73,24 +73,27 @@ function Reel({ post }: { post: Post }) {
 
         {/* right actions */}
         <div className="absolute bottom-24 right-3 flex flex-col items-center gap-5">
-          <button onClick={like} className="flex flex-col items-center active:scale-90">
+          <button
+            onClick={like}
+            className={`flex flex-col items-center transition active:scale-90 ${liked ? "" : "hover:text-neutral-400"}`}
+          >
             {liked ? <HeartFilled size={30} className="text-ig-red" /> : <HeartIcon size={30} />}
             <span className="mt-1 text-xs font-semibold">{formatCount(count)}</span>
           </button>
-          <button className="flex flex-col items-center">
+          <button className="flex flex-col items-center transition hover:text-neutral-400 active:scale-90">
             <CommentIcon size={30} />
             <span className="mt-1 text-xs font-semibold">{formatCount(post.commentCount)}</span>
           </button>
           <button
             onClick={repost}
-            className={reposted ? "text-green-500" : undefined}
+            className={`transition active:scale-90 ${reposted ? "text-green-500" : "hover:text-neutral-400"}`}
           >
             <RepostIcon size={28} />
           </button>
-          <button>
+          <button className="transition hover:text-neutral-400 active:scale-90">
             <ShareIcon size={28} />
           </button>
-          <button>
+          <button className="transition hover:text-neutral-400 active:scale-90">
             <MoreIcon size={26} />
           </button>
         </div>

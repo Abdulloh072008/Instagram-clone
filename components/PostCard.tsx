@@ -161,16 +161,19 @@ export default function PostCard({ post }: { post: Post }) {
 
       {/* actions */}
       <div className="flex items-center gap-4 px-3 pt-3">
-        <button onClick={toggleLike} className="transition active:scale-90">
+        <button
+          onClick={toggleLike}
+          className={`transition active:scale-90 ${liked ? "" : "hover:text-neutral-400"}`}
+        >
           {liked ? <HeartFilled size={26} className="text-ig-red" /> : <HeartIcon size={26} />}
         </button>
         <button
           onClick={() => setShowAllComments(true)}
-          className="transition hover:text-neutral-400"
+          className="transition hover:text-neutral-400 active:scale-90"
         >
           <CommentIcon size={26} />
         </button>
-        <button className="transition hover:text-neutral-400">
+        <button className="transition hover:text-neutral-400 active:scale-90">
           <ShareIcon size={24} />
         </button>
         <button
@@ -179,7 +182,10 @@ export default function PostCard({ post }: { post: Post }) {
         >
           <RepostIcon size={25} />
         </button>
-        <button onClick={toggleSave} className="ml-auto transition active:scale-90">
+        <button
+          onClick={toggleSave}
+          className={`ml-auto transition active:scale-90 ${saved ? "" : "hover:text-neutral-400"}`}
+        >
           {saved ? <BookmarkFilled size={24} /> : <BookmarkIcon size={24} />}
         </button>
       </div>
