@@ -1,19 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Img from "./Img";
 import PostModal from "./PostModal";
 import type { Post } from "@/lib/types";
 import { HeartFilled, CommentIcon } from "./Icons";
 import { formatCount } from "@/lib/utils";
 
-export default function PostGrid({ posts }: { posts: Post[] }) {
+export default function PostGrid({ posts, isRepost = false }: { posts: Post[]; isRepost?: boolean }) {
+  const [items, setItems] = useState(posts);
   const [active, setActive] = useState<Post | null>(null);
+
+  // Keep local list in sync when the parent swaps the posts (e.g. switching profile tabs).
+  useEffect(() => setItems(posts), [posts]);
 
   return (
     <>
       <div className="grid grid-cols-3 gap-0.5 md:gap-1">
-        {posts.map((post) => (
+        {items.map((post) => (
           <button
             key={post.postId}
             onClick={() => setActive(post)}
@@ -37,7 +41,17 @@ export default function PostGrid({ posts }: { posts: Post[] }) {
           </button>
         ))}
       </div>
-      {active && <PostModal post={active} onClose={() => setActive(null)} />}
+      {active && (
+        <PostModal
+          post={active}
+          isRepost={isRepost}
+          onClose={() => setActive(null)}
+          onDeleted={() => {
+            setItems((l) => l.filter((p) => p.postId !== active.postId));
+            setActive(null);
+          }}
+        />
+      )}
     </>
   );
 }

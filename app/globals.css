@@ -21,6 +21,15 @@ body {
   height: 100%;
 }
 
+/* Tailwind v4 dropped the default button pointer cursor — restore it for clickables. */
+button:not(:disabled),
+[role="button"],
+a,
+label[for],
+summary {
+  cursor: pointer;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

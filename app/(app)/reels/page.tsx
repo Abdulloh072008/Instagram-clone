@@ -5,16 +5,26 @@ import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import Img from "@/components/Img";
 import { imageUrl } from "@/lib/config";
-import { posts as postsApi } from "@/lib/services";
+import { posts as postsApi, reposts as repostsApi } from "@/lib/services";
+import { useAuth } from "@/lib/auth";
 import { formatCount } from "@/lib/utils";
 import type { Post } from "@/lib/types";
-import { HeartIcon, HeartFilled, CommentIcon, ShareIcon, MoreIcon } from "@/components/Icons";
+import {
+  HeartIcon,
+  HeartFilled,
+  CommentIcon,
+  ShareIcon,
+  RepostIcon,
+  MoreIcon,
+} from "@/components/Icons";
 
 const VIDEO_RX = /\.(mp4|webm|mov|m4v)$/i;
 
 function Reel({ post }: { post: Post }) {
+  const { user } = useAuth();
   const [liked, setLiked] = useState(post.postLike);
   const [count, setCount] = useState(post.postLikeCount);
+  const [reposted, setReposted] = useState(false);
   const media = post.images?.[0];
   const isVideo = media ? VIDEO_RX.test(media) : false;
 
@@ -27,6 +37,19 @@ function Reel({ post }: { post: Post }) {
     } catch {
       setLiked(!next);
       setCount((c) => c + (next ? -1 : 1));
+    }
+  }
+
+  // ponytail: optimistic toggle; initial repost state not prefetched.
+  async function repost() {
+    if (!user) return;
+    const next = !reposted;
+    setReposted(next);
+    try {
+      if (next) await repostsApi.add(post, user.id, user.userName);
+      else await repostsApi.remove(user.id, post.postId);
+    } catch {
+      setReposted(!next);
     }
   }
 
@@ -50,18 +73,27 @@ function Reel({ post }: { post: Post }) {
 
         {/* right actions */}
         <div className="absolute bottom-24 right-3 flex flex-col items-center gap-5">
-          <button onClick={like} className="flex flex-col items-center active:scale-90">
+          <button
+            onClick={like}
+            className={`flex flex-col items-center transition active:scale-90 ${liked ? "" : "hover:text-neutral-400"}`}
+          >
             {liked ? <HeartFilled size={30} className="text-ig-red" /> : <HeartIcon size={30} />}
             <span className="mt-1 text-xs font-semibold">{formatCount(count)}</span>
           </button>
-          <button className="flex flex-col items-center">
+          <button className="flex flex-col items-center transition hover:text-neutral-400 active:scale-90">
             <CommentIcon size={30} />
             <span className="mt-1 text-xs font-semibold">{formatCount(post.commentCount)}</span>
           </button>
-          <button>
+          <button
+            onClick={repost}
+            className={`transition active:scale-90 ${reposted ? "text-green-500" : "hover:text-neutral-400"}`}
+          >
+            <RepostIcon size={28} />
+          </button>
+          <button className="transition hover:text-neutral-400 active:scale-90">
             <ShareIcon size={28} />
           </button>
-          <button>
+          <button className="transition hover:text-neutral-400 active:scale-90">
             <MoreIcon size={26} />
           </button>
         </div>
@@ -87,8 +119,8 @@ export default function ReelsPage() {
 
   useEffect(() => {
     postsApi
-      .reels(1, 12)
-      .then((res) => setReels((res.data ?? []).filter((p) => p.images?.length)))
+      .reels(1, 20)
+      .then((res) => setReels((res.data ?? []).filter((p) => p.images.length)))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);

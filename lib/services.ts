@@ -1,5 +1,5 @@
 // Typed wrappers around every backend endpoint the UI uses.
-import { api } from "./client";
+import { api, extraApi } from "./client";
 import type {
   AppNotification,
   ChatListItem,
@@ -7,6 +7,8 @@ import type {
   Envelope,
   Paged,
   Post,
+  Repost,
+  RepostState,
   UserListItem,
   UserProfile,
   UserStories,
@@ -24,8 +26,17 @@ export const posts = {
       PageSize: pageSize,
     }),
 
+  // get-reels returns `images` as a single string, not an array — normalize it so the UI can treat it uniformly.
   reels: (pageNumber = 1, pageSize = 10) =>
-    api.get<Paged<Post>>("/Post/get-reels", { PageNumber: pageNumber, PageSize: pageSize }),
+    api
+      .get<Paged<Post>>("/Post/get-reels", { PageNumber: pageNumber, PageSize: pageSize })
+      .then((res) => ({
+        ...res,
+        data: (res.data ?? []).map((p) => ({
+          ...p,
+          images: Array.isArray(p.images) ? p.images : p.images ? [p.images as string] : [],
+        })),
+      })),
 
   // get-my-posts returns a bare array (no pagination envelope) and ignores query params.
   mine: () => api.get<Post[]>("/Post/get-my-posts"),
@@ -38,7 +49,7 @@ export const posts = {
     }),
 
   byId: (postId: number) =>
-    api.get<Envelope<Post>>("/Post/get-post-by-id", { postId }),
+    api.get<Envelope<Post>>("/Post/get-post-by-id", { id: postId }),
 
   like: (postId: number) => api.postJson("/Post/like-post", undefined, { postId }),
   view: (postId: number) => api.postJson("/Post/view-post", undefined, { postId }),
@@ -57,7 +68,25 @@ export const posts = {
     return api.postForm("/Post/add-post", form);
   },
 
-  remove: (postId: number) => api.del("/Post/delete-post", { postId }),
+  remove: (postId: number) => api.del("/Post/delete-post", { id: postId }),
+};
+
+// ---------- Reposts (extra backend) ----------
+export const reposts = {
+  add: (post: Post, userId: string, userName: string, caption = "") =>
+    extraApi.postJson("/Repost/add", {
+      userId,
+      userName,
+      postId: post.postId,
+      originalAuthorId: post.userId,
+      originalAuthorName: post.userName,
+      caption,
+    }),
+  remove: (userId: string, postId: number) =>
+    extraApi.del("/Repost/remove", { userId, postId }),
+  state: (postId: number, userId: string) =>
+    extraApi.get<Envelope<RepostState>>("/Repost/get", { postId, userId }),
+  byUser: (userId: string) => extraApi.get<Envelope<Repost[]>>("/Repost/user", { userId }),
 };
 
 // ---------- Stories ----------

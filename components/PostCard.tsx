@@ -5,7 +5,8 @@ import { useForm } from "react-hook-form";
 import Link from "next/link";
 import Avatar from "./Avatar";
 import Img from "./Img";
-import { posts as postsApi } from "@/lib/services";
+import { posts as postsApi, reposts as repostsApi } from "@/lib/services";
+import { useAuth } from "@/lib/auth";
 import { timeAgo, formatCount } from "@/lib/utils";
 import type { Post, PostComment } from "@/lib/types";
 import {
@@ -13,12 +14,25 @@ import {
   HeartFilled,
   CommentIcon,
   ShareIcon,
+  RepostIcon,
   BookmarkIcon,
   BookmarkFilled,
   MoreIcon,
 } from "./Icons";
 
-export default function PostCard({ post }: { post: Post }) {
+export default function PostCard({
+  post,
+  isRepost = false,
+  onDeleted,
+}: {
+  post: Post;
+  isRepost?: boolean;
+  onDeleted?: () => void;
+}) {
+  const { user } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [deleted, setDeleted] = useState(false);
+  const [reposted, setReposted] = useState(false);
   const [liked, setLiked] = useState(post.postLike);
   const [likeCount, setLikeCount] = useState(post.postLikeCount);
   const [saved, setSaved] = useState(post.postFavorite);
@@ -45,6 +59,44 @@ export default function PostCard({ post }: { post: Post }) {
     } catch {
       setLiked(!next);
       setLikeCount((c) => c + (next ? -1 : 1));
+    }
+  }
+
+  const canDelete = !!user && post.userId === user.id;
+
+  async function deletePost() {
+    setMenuOpen(false);
+    try {
+      await postsApi.remove(post.postId);
+      setDeleted(true);
+      onDeleted?.();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function removeRepost() {
+    if (!user) return;
+    setMenuOpen(false);
+    try {
+      await repostsApi.remove(user.id, post.postId);
+      setDeleted(true);
+      onDeleted?.();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  // ponytail: optimistic toggle, initial repost state not prefetched to avoid a request per feed post.
+  async function toggleRepost() {
+    if (!user) return;
+    const next = !reposted;
+    setReposted(next);
+    try {
+      if (next) await repostsApi.add(post, user.id, user.userName);
+      else await repostsApi.remove(user.id, post.postId);
+    } catch {
+      setReposted(!next);
     }
   }
 
@@ -80,6 +132,8 @@ export default function PostCard({ post }: { post: Post }) {
 
   const visibleComments = showAllComments ? comments : comments.slice(0, 2);
 
+  if (deleted) return null;
+
   return (
     <article className="mx-auto w-full max-w-[470px] border-b border-line pb-3 md:rounded-lg md:border md:pb-0">
       {/* header */}
@@ -94,15 +148,51 @@ export default function PostCard({ post }: { post: Post }) {
           <span className="ml-1 text-sm text-neutral-500">· {timeAgo(post.datePublished)}</span>
           {post.title && <p className="truncate text-xs text-neutral-400">{post.title}</p>}
         </div>
-        <button className="text-neutral-300 hover:text-white">
-          <MoreIcon size={20} />
-        </button>
+        {(isRepost || canDelete) && (
+          <div className="relative">
+            <button
+              onClick={() => setMenuOpen((o) => !o)}
+              className="text-neutral-300 hover:text-white"
+            >
+              <MoreIcon size={20} />
+            </button>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                <div className="absolute right-0 top-7 z-20 w-40 overflow-hidden rounded-lg border border-line bg-elevated text-sm shadow-lg">
+                  {isRepost && (
+                    <button
+                      onClick={removeRepost}
+                      className="block w-full px-4 py-2.5 text-left font-semibold text-ig-red hover:bg-neutral-800"
+                    >
+                      Remove repost
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button
+                      onClick={deletePost}
+                      className="block w-full px-4 py-2.5 text-left font-semibold text-ig-red hover:bg-neutral-800"
+                    >
+                      Delete post
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setMenuOpen(false)}
+                    className="block w-full px-4 py-2.5 text-left hover:bg-neutral-800"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </header>
 
       {/* media */}
       <div className="relative aspect-square w-full overflow-hidden bg-neutral-950 md:rounded-none">
         {images.length > 0 ? (
-          <Img src={images[slide]} alt={post.title ?? ""} className="h-full w-full object-cover" />
+          <Img src={images[slide]} alt={post.title ?? ""} controls className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full items-center justify-center px-6 text-center text-lg text-neutral-300">
             {post.content || post.title || "…"}
@@ -144,19 +234,31 @@ export default function PostCard({ post }: { post: Post }) {
 
       {/* actions */}
       <div className="flex items-center gap-4 px-3 pt-3">
-        <button onClick={toggleLike} className="transition active:scale-90">
+        <button
+          onClick={toggleLike}
+          className={`transition active:scale-90 ${liked ? "" : "hover:text-neutral-400"}`}
+        >
           {liked ? <HeartFilled size={26} className="text-ig-red" /> : <HeartIcon size={26} />}
         </button>
         <button
           onClick={() => setShowAllComments(true)}
-          className="transition hover:text-neutral-400"
+          className="transition hover:text-neutral-400 active:scale-90"
         >
           <CommentIcon size={26} />
         </button>
-        <button className="transition hover:text-neutral-400">
+        <button className="transition hover:text-neutral-400 active:scale-90">
           <ShareIcon size={24} />
         </button>
-        <button onClick={toggleSave} className="ml-auto transition active:scale-90">
+        <button
+          onClick={toggleRepost}
+          className={`transition active:scale-90 ${reposted ? "text-green-500" : "hover:text-neutral-400"}`}
+        >
+          <RepostIcon size={25} />
+        </button>
+        <button
+          onClick={toggleSave}
+          className={`ml-auto transition active:scale-90 ${saved ? "" : "hover:text-neutral-400"}`}
+        >
           {saved ? <BookmarkFilled size={24} /> : <BookmarkIcon size={24} />}
         </button>
       </div>

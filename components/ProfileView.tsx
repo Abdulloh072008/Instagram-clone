@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Avatar from "./Avatar";
 import PostGrid from "./PostGrid";
 import FollowButton from "./FollowButton";
-import { chats } from "@/lib/services";
+import { chats, reposts as repostsApi, posts as postsApi } from "@/lib/services";
 import { formatCount } from "@/lib/utils";
 import type { Post, UserProfile } from "@/lib/types";
-import { GridIcon, ReelsIcon, TaggedIcon, SettingsIcon } from "./Icons";
+import { GridIcon, ReelsIcon, RepostIcon, TaggedIcon, SettingsIcon } from "./Icons";
 
 export default function ProfileView({
   userId,
@@ -25,8 +25,22 @@ export default function ProfileView({
   isFollowing?: boolean;
 }) {
   const router = useRouter();
-  const [tab, setTab] = useState<"posts" | "reels" | "tagged">("posts");
+  const [tab, setTab] = useState<"posts" | "reels" | "reposts" | "tagged">("posts");
+  const [reposts, setReposts] = useState<Post[] | null>(null);
   const [followers, setFollowers] = useState(profile.subscribersCount);
+
+  useEffect(() => {
+    if (tab !== "reposts" || reposts !== null) return;
+    // ponytail: resolve each repost's postId to a full Post so they render like real posts.
+    repostsApi
+      .byUser(userId)
+      .then((res) => res.data ?? [])
+      .then((list) =>
+        Promise.all(list.map((r) => postsApi.byId(r.postId).then((p) => p.data).catch(() => null))),
+      )
+      .then((list) => setReposts(list.filter((p): p is Post => !!p)))
+      .catch(() => setReposts([]));
+  }, [tab, reposts, userId]);
   const fullName =
     [profile.firstName, profile.lastName].filter(Boolean).join(" ") || profile.userName;
 
@@ -103,6 +117,7 @@ export default function ProfileView({
         {[
           { k: "posts", label: "POSTS", Icon: GridIcon },
           { k: "reels", label: "REELS", Icon: ReelsIcon },
+          { k: "reposts", label: "REPOSTS", Icon: RepostIcon },
           { k: "tagged", label: "TAGGED", Icon: TaggedIcon },
         ].map(({ k, label, Icon }) => (
           <button
@@ -124,6 +139,14 @@ export default function ProfileView({
             <PostGrid posts={posts} />
           ) : (
             <p className="py-16 text-center text-neutral-500">No posts yet</p>
+          )
+        ) : tab === "reposts" ? (
+          reposts === null ? (
+            <p className="py-16 text-center text-neutral-500">Loading…</p>
+          ) : reposts.length > 0 ? (
+            <PostGrid posts={reposts} isRepost />
+          ) : (
+            <p className="py-16 text-center text-neutral-500">No reposts yet</p>
           )
         ) : (
           <p className="py-16 text-center text-neutral-500">Nothing here yet</p>

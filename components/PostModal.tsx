@@ -5,7 +5,17 @@ import PostCard from "./PostCard";
 import type { Post } from "@/lib/types";
 import { CloseIcon } from "./Icons";
 
-export default function PostModal({ post, onClose }: { post: Post; onClose: () => void }) {
+export default function PostModal({
+  post,
+  onClose,
+  isRepost = false,
+  onDeleted,
+}: {
+  post: Post;
+  onClose: () => void;
+  isRepost?: boolean;
+  onDeleted?: () => void;
+}) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -25,7 +35,7 @@ export default function PostModal({ post, onClose }: { post: Post; onClose: () =
         <CloseIcon size={28} />
       </button>
       <div className="max-h-[90vh] w-full max-w-[470px] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        <PostCard post={post} />
+        <PostCard post={post} isRepost={isRepost} onDeleted={onDeleted} />
       </div>
     </div>
   );

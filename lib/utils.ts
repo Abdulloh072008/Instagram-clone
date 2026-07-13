@@ -21,6 +21,11 @@ export function formatCount(n?: number | null): string {
   return (n ?? 0).toLocaleString("en-US");
 }
 
+/** True when a media filename is a video the browser can play in <video>. */
+export function isVideo(name?: string | null): boolean {
+  return !!name && /\.(mp4|webm|mov|m4v|ogg)$/i.test(name);
+}
+
 /** Deterministic gradient fallback avatar color from a seed string. */
 export function seedGradient(seed: string): string {
   let hash = 0;

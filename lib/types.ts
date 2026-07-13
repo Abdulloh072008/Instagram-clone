@@ -45,6 +45,23 @@ export interface Post {
   content: string | null;
 }
 
+// Repost (extra backend). GET /Repost/user -> Envelope<Repost[]>;
+// GET /Repost/get -> Envelope<RepostState>.
+export interface Repost {
+  userId: string;
+  userName: string;
+  postId: number;
+  originalAuthorId: string;
+  originalAuthorName: string;
+  caption: string | null;
+}
+
+export interface RepostState {
+  total: number;
+  mine: boolean;
+  reposts: Repost[];
+}
+
 export interface UserProfile {
   userName: string;
   image: string | null;

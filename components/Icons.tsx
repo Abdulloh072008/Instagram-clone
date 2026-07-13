@@ -81,6 +81,15 @@ export const ShareIcon = (p: IconProps) => (
   </svg>
 );
 
+export const RepostIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M17 2l4 4-4 4" />
+    <path d="M3 12V10a4 4 0 0 1 4-4h14" />
+    <path d="M7 22l-4-4 4-4" />
+    <path d="M21 12v2a4 4 0 0 1-4 4H3" />
+  </svg>
+);
+
 export const BookmarkIcon = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M6 3h12a1 1 0 0 1 1 1v17l-7-4-7 4V4a1 1 0 0 1 1-1Z" />

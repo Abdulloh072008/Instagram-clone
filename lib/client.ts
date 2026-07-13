@@ -1,5 +1,5 @@
 import axios, { AxiosError } from "axios";
-import { API_BASE, TOKEN_KEY } from "./config";
+import { API_BASE, EXTRA_API_BASE, TOKEN_KEY } from "./config";
 
 export class ApiError extends Error {
   status: number;
@@ -82,4 +82,38 @@ export const api = {
 
   putForm: <T = unknown>(path: string, form: FormData, query?: Query) =>
     http.put<T>(path, form, { params: clean(query) }).then((r) => r.data),
+};
+
+// --- Second backend (extra API: reposts). Same interceptors, different base URL. ---
+const httpExtra = axios.create({ baseURL: EXTRA_API_BASE });
+
+httpExtra.interceptors.request.use((config) => {
+  const token = getToken();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+httpExtra.interceptors.response.use(
+  (res) => res,
+  (error: AxiosError<{ errors?: string[]; title?: string; message?: string }>) => {
+    const status = error.response?.status ?? 0;
+    const data = error.response?.data;
+    const errors = data?.errors?.length
+      ? data.errors
+      : [data?.title || data?.message || error.message || "Request failed"];
+    if (status === 401) clearToken();
+    throw new ApiError(errors[0], status, errors);
+  },
+);
+
+/** Same verbs as `api`, but pointed at the extra backend. */
+export const extraApi = {
+  get: <T = unknown>(path: string, query?: Query) =>
+    httpExtra.get<T>(path, { params: clean(query) }).then((r) => r.data),
+
+  postJson: <T = unknown>(path: string, body?: unknown, query?: Query) =>
+    httpExtra.post<T>(path, body, { params: clean(query) }).then((r) => r.data),
+
+  del: <T = unknown>(path: string, query?: Query) =>
+    httpExtra.delete<T>(path, { params: clean(query) }).then((r) => r.data),
 };
