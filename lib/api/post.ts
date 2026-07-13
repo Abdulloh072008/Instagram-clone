@@ -39,9 +39,9 @@ export function getPostById(id: number) {
   return request<ApiResponse<Post>>("/Post/get-post-by-id", { query: { id } });
 }
 
-/** Мои посты. */
+/** Мои посты. ВНИМАНИЕ: возвращает ГОЛЫЙ массив (без конверта ApiResponse). */
 export function getMyPosts() {
-  return request<ApiResponse<Post[]>>("/Post/get-my-posts");
+  return request<Post[]>("/Post/get-my-posts");
 }
 
 /** Посты пользователей, на которых я подписан. */
