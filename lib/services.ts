@@ -25,8 +25,17 @@ export const posts = {
       PageSize: pageSize,
     }),
 
+  // get-reels returns `images` as a single string, not an array — normalize it so the UI can treat it uniformly.
   reels: (pageNumber = 1, pageSize = 10) =>
-    api.get<Paged<Post>>("/Post/get-reels", { PageNumber: pageNumber, PageSize: pageSize }),
+    api
+      .get<Paged<Post>>("/Post/get-reels", { PageNumber: pageNumber, PageSize: pageSize })
+      .then((res) => ({
+        ...res,
+        data: (res.data ?? []).map((p) => ({
+          ...p,
+          images: Array.isArray(p.images) ? p.images : p.images ? [p.images as string] : [],
+        })),
+      })),
 
   // get-my-posts returns a bare array (no pagination envelope) and ignores query params.
   mine: () => api.get<Post[]>("/Post/get-my-posts"),

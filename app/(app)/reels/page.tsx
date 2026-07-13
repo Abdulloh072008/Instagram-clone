@@ -118,23 +118,11 @@ export default function ReelsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // get-reels alone often returns nothing, so also pull the feed and surface video posts.
-    (async () => {
-      try {
-        const [reelsRes, feedRes] = await Promise.all([
-          postsApi.reels(1, 20).catch(() => null),
-          postsApi.feed(1, 30).catch(() => null),
-        ]);
-        const pool = [...(reelsRes?.data ?? []), ...(feedRes?.data ?? [])];
-        const videos = pool.filter((p) => p.images?.some((m) => VIDEO_RX.test(m)));
-        // Prefer real videos; if there are none, fall back to any post with media so it isn't blank.
-        const chosen = videos.length ? videos : pool.filter((p) => p.images?.length);
-        const seen = new Set<number>();
-        setReels(chosen.filter((p) => !seen.has(p.postId) && seen.add(p.postId)));
-      } finally {
-        setLoading(false);
-      }
-    })();
+    postsApi
+      .reels(1, 20)
+      .then((res) => setReels((res.data ?? []).filter((p) => p.images.length)))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) {
