@@ -359,6 +359,13 @@ function ReelsView({ openPost }: Ctx) {
   const { data, loading, mutate } = useResource("reels", () => run("get-reels", REELS_LOAD));
   const reels = data?.data ?? [];
 
+  // На вкладке Reels скрываем прокрутку всего документа — остаётся только
+  // внутренний скролл ленты рилсов (у него скроллбар уже скрыт).
+  useEffect(() => {
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = ""; };
+  }, []);
+
   const like = (r: Reel) => {
     const willUnlike = r.postLike;
     mutate((prev) => (prev ? { ...prev, data: prev.data.map((x) => (x.postId === r.postId ? { ...x, postLike: !x.postLike, postLikeCount: Math.max(0, x.postLikeCount + (x.postLike ? -1 : 1)) } : x)) } : prev));
