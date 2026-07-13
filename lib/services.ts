@@ -1,5 +1,5 @@
 // Typed wrappers around every backend endpoint the UI uses.
-import { api } from "./api";
+import { api } from "./client";
 import type {
   ChatListItem,
   ChatMessage,

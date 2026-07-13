@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { api, getToken, setToken, clearToken } from "./api";
+import { api, getToken, setToken, clearToken } from "./client";
 import type { AuthUser, Envelope } from "./types";
 
 function decodeToken(token: string): AuthUser | null {
