@@ -20,8 +20,18 @@ import {
   MoreIcon,
 } from "./Icons";
 
-export default function PostCard({ post }: { post: Post }) {
+export default function PostCard({
+  post,
+  isRepost = false,
+  onDeleted,
+}: {
+  post: Post;
+  isRepost?: boolean;
+  onDeleted?: () => void;
+}) {
   const { user } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [deleted, setDeleted] = useState(false);
   const [reposted, setReposted] = useState(false);
   const [liked, setLiked] = useState(post.postLike);
   const [likeCount, setLikeCount] = useState(post.postLikeCount);
@@ -49,6 +59,31 @@ export default function PostCard({ post }: { post: Post }) {
     } catch {
       setLiked(!next);
       setLikeCount((c) => c + (next ? -1 : 1));
+    }
+  }
+
+  const canDelete = !!user && post.userId === user.id;
+
+  async function deletePost() {
+    setMenuOpen(false);
+    try {
+      await postsApi.remove(post.postId);
+      setDeleted(true);
+      onDeleted?.();
+    } catch {
+      /* ignore */
+    }
+  }
+
+  async function removeRepost() {
+    if (!user) return;
+    setMenuOpen(false);
+    try {
+      await repostsApi.remove(user.id, post.postId);
+      setDeleted(true);
+      onDeleted?.();
+    } catch {
+      /* ignore */
     }
   }
 
@@ -97,6 +132,8 @@ export default function PostCard({ post }: { post: Post }) {
 
   const visibleComments = showAllComments ? comments : comments.slice(0, 2);
 
+  if (deleted) return null;
+
   return (
     <article className="mx-auto w-full max-w-[470px] border-b border-line pb-3 md:rounded-lg md:border md:pb-0">
       {/* header */}
@@ -111,9 +148,45 @@ export default function PostCard({ post }: { post: Post }) {
           <span className="ml-1 text-sm text-neutral-500">· {timeAgo(post.datePublished)}</span>
           {post.title && <p className="truncate text-xs text-neutral-400">{post.title}</p>}
         </div>
-        <button className="text-neutral-300 hover:text-white">
-          <MoreIcon size={20} />
-        </button>
+        {(isRepost || canDelete) && (
+          <div className="relative">
+            <button
+              onClick={() => setMenuOpen((o) => !o)}
+              className="text-neutral-300 hover:text-white"
+            >
+              <MoreIcon size={20} />
+            </button>
+            {menuOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                <div className="absolute right-0 top-7 z-20 w-40 overflow-hidden rounded-lg border border-line bg-elevated text-sm shadow-lg">
+                  {isRepost && (
+                    <button
+                      onClick={removeRepost}
+                      className="block w-full px-4 py-2.5 text-left font-semibold text-ig-red hover:bg-neutral-800"
+                    >
+                      Remove repost
+                    </button>
+                  )}
+                  {canDelete && (
+                    <button
+                      onClick={deletePost}
+                      className="block w-full px-4 py-2.5 text-left font-semibold text-ig-red hover:bg-neutral-800"
+                    >
+                      Delete post
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setMenuOpen(false)}
+                    className="block w-full px-4 py-2.5 text-left hover:bg-neutral-800"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </header>
 
       {/* media */}

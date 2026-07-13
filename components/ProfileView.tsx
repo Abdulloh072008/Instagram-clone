@@ -144,7 +144,7 @@ export default function ProfileView({
           reposts === null ? (
             <p className="py-16 text-center text-neutral-500">Loading…</p>
           ) : reposts.length > 0 ? (
-            <PostGrid posts={reposts} />
+            <PostGrid posts={reposts} isRepost />
           ) : (
             <p className="py-16 text-center text-neutral-500">No reposts yet</p>
           )

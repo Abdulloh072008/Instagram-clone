@@ -58,7 +58,7 @@ export const posts = {
     return api.postForm("/Post/add-post", form);
   },
 
-  remove: (postId: number) => api.del("/Post/delete-post", { postId }),
+  remove: (postId: number) => api.del("/Post/delete-post", { id: postId }),
 };
 
 // ---------- Reposts (extra backend) ----------
