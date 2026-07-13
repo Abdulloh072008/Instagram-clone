@@ -81,6 +81,19 @@ export const ShareIcon = (p: IconProps) => (
   </svg>
 );
 
+export const PlayIcon = (p: IconProps) => (
+  <svg {...base(p)} fill="currentColor" stroke="none">
+    <path d="M6 4.5v15a1 1 0 0 0 1.5.87l12-7.5a1 1 0 0 0 0-1.74l-12-7.5A1 1 0 0 0 6 4.5Z" />
+  </svg>
+);
+
+export const PauseIcon = (p: IconProps) => (
+  <svg {...base(p)} fill="currentColor" stroke="none">
+    <rect x="6" y="4" width="4" height="16" rx="1" />
+    <rect x="14" y="4" width="4" height="16" rx="1" />
+  </svg>
+);
+
 export const RepostIcon = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M17 2l4 4-4 4" />
