@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { notifications as notifApi } from "@/lib/services";
 import {
   HomeIcon,
   HomeFilled,
@@ -14,6 +15,7 @@ import {
   PlusSquare,
   MenuIcon,
   SettingsIcon,
+  BellIcon,
 } from "./Icons";
 import Avatar from "./Avatar";
 
@@ -22,6 +24,7 @@ const items = [
   { href: "/explore", label: "Search", icon: SearchIcon, active: SearchIcon },
   { href: "/reels", label: "Reels", icon: ReelsIcon, active: ReelsIcon },
   { href: "/messages", label: "Messages", icon: MessageIcon, active: MessageIcon },
+  { href: "/notifications", label: "Notifications", icon: BellIcon, active: BellIcon },
   { href: "/profile", label: "Profile", icon: ProfileIcon, active: ProfileIcon },
 ];
 
@@ -30,6 +33,28 @@ export default function Sidebar() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [unread, setUnread] = useState(0);
+
+  // Poll the unread notification count (no-op if the backend endpoint isn't live).
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      notifApi
+        .unreadCount()
+        .then((res) => alive && setUnread(Number(res.data) || 0))
+        .catch(() => {});
+    load();
+    const t = setInterval(load, 30_000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, []);
+
+  // Opening the notifications page clears the badge.
+  useEffect(() => {
+    if (pathname.startsWith("/notifications")) setUnread(0);
+  }, [pathname]);
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -53,7 +78,14 @@ export default function Sidebar() {
                 Active ? "font-semibold" : "font-normal"
               }`}
             >
-              <Icon size={26} />
+              <span className="relative">
+                <Icon size={26} />
+                {it.href === "/notifications" && unread > 0 && (
+                  <span className="absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-ig-red px-1 text-[10px] font-bold text-white">
+                    {unread > 99 ? "99+" : unread}
+                  </span>
+                )}
+              </span>
               <span className="hidden xl:block">{it.label}</span>
             </Link>
           );
