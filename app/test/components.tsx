@@ -8,14 +8,14 @@ import { useLog, Btn, Avatar, Modal, Input, Icon, fmtDate } from "./ui";
 const isImg = (f?: string) => !!f && /\.(png|jpe?g|gif|webp)$/i.test(f);
 const isVideo = (f?: string) => !!f && /\.(mp4|webm|mov)$/i.test(f);
 
-/** Медиа поста/рила: картинка или видео. */
-export function Media({ file, className }: { file?: string; className?: string }) {
+/** Медиа поста/рила: картинка или видео. Медиа грузится лениво. */
+export function Media({ file, className, eager }: { file?: string; className?: string; eager?: boolean }) {
   if (isVideo(file))
-    return <video src={mediaUrl(file)} controls className={className} />;
+    return <video src={mediaUrl(file)} controls preload="metadata" playsInline className={className} />;
   if (isImg(file))
     // eslint-disable-next-line @next/next/no-img-element
-    return <img src={mediaUrl(file)} alt="" className={className} />;
-  return <div className={"grid place-items-center text-xs opacity-40 bg-black/5 dark:bg-white/5 " + (className ?? "")}>нет медиа</div>;
+    return <img src={mediaUrl(file)} alt="" loading={eager ? "eager" : "lazy"} decoding="async" className={className} />;
+  return <div className={"grid place-items-center text-xs text-[#8e8e8e] bg-black/5 dark:bg-white/5 " + (className ?? "")}>нет медиа</div>;
 }
 
 /** Плитка поста в сетке. */

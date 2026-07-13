@@ -5,12 +5,56 @@ import {
   useContext,
   useState,
   useCallback,
+  useEffect,
   type ReactNode,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type TextareaHTMLAttributes,
 } from "react";
 import { mediaUrl, ApiError } from "@/lib/api";
+
+// ── кэш данных + префетч (чтобы вкладки не перезагружались каждый раз) ────────
+
+const _cache = new Map<string, { t: number; v: unknown }>();
+const DEFAULT_TTL = 60_000;
+
+/** Заранее прогреть кэш (фоновый префетч). Ошибки глотаем — это не критично. */
+export function prefetch<T>(key: string, loader: () => Promise<T>) {
+  if (_cache.has(key)) return;
+  loader().then((v) => _cache.set(key, { t: Date.now(), v })).catch(() => {});
+}
+
+/**
+ * Данные с кэшем: при повторном заходе на вкладку показываем из кэша мгновенно,
+ * а сеть дёргаем только если данные устарели (TTL). Убирает «долгое появление».
+ */
+export function useResource<T>(key: string, loader: () => Promise<T>, ttl = DEFAULT_TTL) {
+  const [data, setData] = useState<T | undefined>(() => _cache.get(key)?.v as T | undefined);
+  const [loading, setLoading] = useState<boolean>(() => !_cache.has(key));
+
+  const reload = useCallback(async () => {
+    setLoading(!_cache.has(key));
+    try {
+      const v = await loader();
+      _cache.set(key, { t: Date.now(), v });
+      setData(v);
+    } finally {
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  useEffect(() => {
+    const c = _cache.get(key);
+    if (c && Date.now() - c.t < ttl) return; // есть свежий кэш — сеть не трогаем
+    // осознанный fetch-эффект: загрузка данных с setState внутри reload
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  return { data, loading, reload, setData };
+}
 
 // ── иконки (линейные SVG, без эмодзи) ────────────────────────────────────────
 

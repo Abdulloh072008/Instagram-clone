@@ -1,16 +1,32 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
 import {
   accountApi, userApi, userProfileApi, postApi, storyApi, chatApi, followingApi, locationApi,
-  authToken, getCurrentUser, type Post, type User, type UserProfile, type Reel,
+  authToken, getCurrentUser, type Post, type User, type UserProfile,
   type Subscriber, type ChatSummary, type ChatMessage, type Location, type CurrentUser,
 } from "@/lib/api";
-import type { StoryGroup } from "@/lib/api/story";
-import { LogProvider, LogDrawer, useLog, Btn, Input, TextArea, Card, Avatar, Modal, Icon, fmtDate } from "./ui";
+import { LogProvider, LogDrawer, useLog, useResource, prefetch, Btn, Input, TextArea, Card, Avatar, Modal, Icon } from "./ui";
 import { PostModal, StoryViewer, PostThumb, Media } from "./components";
 
 type Tab = "home" | "explore" | "reels" | "search" | "messages" | "create" | "profile" | "locations" | "account";
+
+/** Короткое относительное время в стиле IG (5 мин., 3 ч., 2 дн.). */
+function relTime(iso?: string) {
+  if (!iso) return "";
+  const s = Math.max(1, (Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 60) return `${Math.floor(s)} с.`;
+  if (s < 3600) return `${Math.floor(s / 60)} мин.`;
+  if (s < 86400) return `${Math.floor(s / 3600)} ч.`;
+  if (s < 604800) return `${Math.floor(s / 86400)} дн.`;
+  return `${Math.floor(s / 604800)} нед.`;
+}
+
+// Загрузчики с общими ключами кэша — используются и во вкладках, и в префетче.
+const FEED_LOAD = () => postApi.getPosts({ pageNumber: 1, pageSize: 8 });
+const EXPLORE_LOAD = () => postApi.getPosts({ pageNumber: 1, pageSize: 21 });
+const REELS_LOAD = () => postApi.getReels({ pageNumber: 1, pageSize: 6 });
+const STORIES_LOAD = () => storyApi.getStories();
 
 const NAV: { key: Tab; icon: string; label: string }[] = [
   { key: "home", icon: "home", label: "Главная" },
@@ -50,38 +66,53 @@ function Shell() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => refresh(), [refresh]);
 
+  // Фоновый префетч: пока смотришь главную, «Интересное»/«Reels» уже грузятся
+  // в кэш — при переходе появляются мгновенно.
+  useEffect(() => {
+    if (!authed) return;
+    prefetch("feed", FEED_LOAD);
+    prefetch("stories", STORIES_LOAD);
+    prefetch("explore", EXPLORE_LOAD);
+    prefetch("reels", REELS_LOAD);
+  }, [authed]);
+
   if (!authed) return <AuthScreen onAuthed={refresh} />;
 
   const ctx = { myId: me?.userId, openPost: setOpenPost, openStory: setOpenStory, openUser: setOpenUser };
+  const wide = tab === "explore" || tab === "profile";
 
   return (
-    <div className="flex min-h-screen">
-      {/* сайдбар */}
-      <nav className="sticky top-0 h-screen w-16 xl:w-60 shrink-0 border-r border-black/[.07] dark:border-white/10 p-3 flex flex-col gap-1">
-        <div className="text-2xl font-bold px-3 py-5 hidden xl:block tracking-tight">Instagram</div>
-        <div className="h-5 xl:hidden" />
-        {NAV.map((n) => {
-          const active = tab === n.key;
-          return (
-            <button
-              key={n.key}
-              onClick={() => setTab(n.key)}
-              title={n.label}
-              className={"flex items-center gap-4 rounded-xl px-3 py-3 text-left transition hover:bg-black/[.05] dark:hover:bg-white/[.08] " + (active ? "font-bold" : "")}
-            >
-              <Icon name={n.icon} size={24} fill={active} />
-              <span className="hidden xl:inline text-[15px]">{n.label}</span>
-            </button>
-          );
-        })}
-        <div className="mt-auto items-center gap-2.5 px-3 py-2 text-sm hidden xl:flex">
-          <Avatar name={me?.userName} size={26} />
-          <span className="opacity-70 truncate">{me?.userName}</span>
+    <div className="flex min-h-screen bg-white dark:bg-black text-[#262626] dark:text-[#f5f5f5]">
+      {/* сайдбар (как в веб-инстаграме) */}
+      <nav className="sticky top-0 h-screen w-[72px] xl:w-[245px] shrink-0 border-r border-[#dbdbdb] dark:border-[#262626] px-3 py-5 flex flex-col">
+        <div className="px-2.5 mb-6 h-10 flex items-center">
+          <span className="hidden xl:block text-2xl" style={{ fontFamily: "'Segoe Script','Brush Script MT',cursive" }}>Instagram</span>
+          <span className="xl:hidden"><Icon name="reels" size={26} /></span>
         </div>
+        <div className="flex flex-col gap-1">
+          {NAV.map((n) => {
+            const active = tab === n.key;
+            return (
+              <button
+                key={n.key}
+                onClick={() => setTab(n.key)}
+                title={n.label}
+                className={"flex items-center gap-4 rounded-lg px-3 py-3 text-left transition hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] active:opacity-60 " + (active ? "font-bold" : "font-normal")}
+              >
+                <Icon name={n.icon} size={26} fill={active} />
+                <span className="hidden xl:inline text-[16px] leading-none">{n.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        <button onClick={() => setTab("profile")} className="mt-auto flex items-center gap-4 rounded-lg px-3 py-3 hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] transition">
+          <Avatar name={me?.userName} size={26} />
+          <span className="hidden xl:inline text-[15px] truncate">{me?.userName}</span>
+        </button>
       </nav>
 
       {/* контент */}
-      <main className="flex-1 max-w-2xl mx-auto w-full p-4 pb-[45vh]">
+      <main className={"flex-1 w-full mx-auto px-4 pt-6 pb-[45vh] " + (wide ? "max-w-[935px]" : "max-w-[470px]")}>
         {tab === "home" && <HomeView {...ctx} />}
         {tab === "explore" && <ExploreView {...ctx} />}
         {tab === "reels" && <ReelsView {...ctx} />}
@@ -119,27 +150,36 @@ function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
     setF({ userName: n, fullName: "Test " + n, email: n + "@mail.com", password: "Qwerty123!" });
   };
 
+  const submit = () => {
+    if (tab === "register")
+      run("register", () => accountApi.register({ userName: f.userName, fullName: f.fullName, email: f.email, password: f.password, confirmPassword: f.password }))
+        .then(() => run("login", () => accountApi.login({ userName: f.userName, password: f.password })).then(onAuthed))
+        .catch(() => {});
+    else run("login", () => accountApi.login({ userName: f.userName, password: f.password })).then(onAuthed).catch(() => {});
+  };
+
   return (
-    <div className="min-h-screen grid place-items-center p-4">
-      <div className="w-full max-w-sm border border-black/10 dark:border-white/15 rounded-2xl p-6 flex flex-col gap-4">
-        <h1 className="text-3xl font-bold text-center">Instagram</h1>
-        <div className="flex gap-3 justify-center text-sm">
-          <button onClick={() => setTab("register")} className={tab === "register" ? "font-bold underline" : "opacity-60"}>Регистрация</button>
-          <button onClick={() => setTab("login")} className={tab === "login" ? "font-bold underline" : "opacity-60"}>Вход</button>
-          <button onClick={suggest} className="ml-auto text-xs opacity-60 underline">тестовый</button>
+    <div className="min-h-screen grid place-items-center p-4 bg-white dark:bg-black text-[#262626] dark:text-[#f5f5f5]">
+      <div className="w-full max-w-[350px] flex flex-col gap-3">
+        <div className="border border-[#dbdbdb] dark:border-[#262626] rounded-lg px-10 py-8 flex flex-col items-center gap-5">
+          <div className="text-4xl mt-2 mb-3" style={{ fontFamily: "'Segoe Script','Brush Script MT',cursive" }}>Instagram</div>
+          <div className="w-full flex flex-col gap-1.5">
+            <input className="w-full rounded border border-[#dbdbdb] dark:border-[#363636] bg-[#fafafa] dark:bg-[#121212] px-2.5 py-2.5 text-xs outline-none focus:border-[#a8a8a8]" placeholder="Имя пользователя" value={f.userName} onChange={(e) => set("userName", e.target.value)} />
+            {tab === "register" && <input className="w-full rounded border border-[#dbdbdb] dark:border-[#363636] bg-[#fafafa] dark:bg-[#121212] px-2.5 py-2.5 text-xs outline-none focus:border-[#a8a8a8]" placeholder="Имя" value={f.fullName} onChange={(e) => set("fullName", e.target.value)} />}
+            {tab === "register" && <input className="w-full rounded border border-[#dbdbdb] dark:border-[#363636] bg-[#fafafa] dark:bg-[#121212] px-2.5 py-2.5 text-xs outline-none focus:border-[#a8a8a8]" placeholder="Эл. адрес" value={f.email} onChange={(e) => set("email", e.target.value)} />}
+            <input className="w-full rounded border border-[#dbdbdb] dark:border-[#363636] bg-[#fafafa] dark:bg-[#121212] px-2.5 py-2.5 text-xs outline-none focus:border-[#a8a8a8]" placeholder="Пароль" value={f.password} onChange={(e) => set("password", e.target.value)} />
+          </div>
+          <button onClick={submit} className="w-full rounded-lg bg-[#0095f6] hover:bg-[#1877f2] text-white text-sm font-semibold py-1.5 transition">
+            {tab === "register" ? "Зарегистрироваться" : "Войти"}
+          </button>
+          <button onClick={suggest} className="text-xs text-[#0095f6] font-semibold">Сгенерировать тестовые данные</button>
         </div>
-        <Input placeholder="userName" value={f.userName} onChange={(e) => set("userName", e.target.value)} />
-        {tab === "register" && <Input placeholder="fullName" value={f.fullName} onChange={(e) => set("fullName", e.target.value)} />}
-        {tab === "register" && <Input placeholder="email" value={f.email} onChange={(e) => set("email", e.target.value)} />}
-        <Input placeholder="password" type="text" value={f.password} onChange={(e) => set("password", e.target.value)} />
-        {tab === "register" ? (
-          <Btn onClick={() => run("register", () => accountApi.register({ userName: f.userName, fullName: f.fullName, email: f.email, password: f.password, confirmPassword: f.password }))}>
-            Зарегистрироваться
-          </Btn>
-        ) : null}
-        <Btn variant={tab === "register" ? "ghost" : "primary"} onClick={() => run("login", () => accountApi.login({ userName: f.userName, password: f.password })).then(onAuthed)}>
-          Войти
-        </Btn>
+        <div className="border border-[#dbdbdb] dark:border-[#262626] rounded-lg py-5 text-center text-sm">
+          {tab === "register" ? "Есть аккаунт? " : "Нет аккаунта? "}
+          <button onClick={() => setTab(tab === "register" ? "login" : "register")} className="text-[#0095f6] font-semibold">
+            {tab === "register" ? "Вход" : "Регистрация"}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -147,58 +187,99 @@ function AuthScreen({ onAuthed }: { onAuthed: () => void }) {
 
 // ── home: сторис + лента ──────────────────────────────────────────────────────
 
-function HomeView({ myId, openPost, openStory, openUser }: Ctx) {
-  const { run } = useLog();
-  const [groups, setGroups] = useState<StoryGroup[]>([]);
-  const [posts, setPosts] = useState<Post[]>([]);
+function StoryRing({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
+  return (
+    <button onClick={onClick} className="p-[2px] rounded-full bg-[linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)]">
+      <span className="block p-[2px] bg-white dark:bg-black rounded-full">{children}</span>
+    </button>
+  );
+}
 
-  const loadStories = () => run("get-stories", () => storyApi.getStories()).then(setGroups).catch(() => {});
-  const loadFeed = () => run("get-posts", () => postApi.getPosts({ pageNumber: 1, pageSize: 10 })).then((r) => setPosts(r.data)).catch(() => {});
-  useEffect(() => { loadStories(); loadFeed(); }, []);
+function CommentBox({ postId, onDone }: { postId: number; onDone: () => void }) {
+  const { run } = useLog();
+  const [text, setText] = useState("");
+  return (
+    <form
+      className="flex items-center gap-2 border-t border-[#efefef] dark:border-[#1a1a1a] pt-2.5 mt-1"
+      onSubmit={(e) => { e.preventDefault(); if (!text.trim()) return; run("add-comment", () => postApi.addComment({ comment: text, postId })).then(() => { setText(""); onDone(); }); }}
+    >
+      <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Добавьте комментарий…" className="flex-1 bg-transparent text-sm outline-none placeholder:text-[#8e8e8e]" />
+      <button type="submit" disabled={!text.trim()} className="text-sm font-semibold text-[#0095f6] disabled:opacity-40">Опубликовать</button>
+    </form>
+  );
+}
+
+function FeedSkeleton() {
+  return (
+    <>
+      {[0, 1].map((i) => (
+        <div key={i} className="mb-6 animate-pulse">
+          <div className="flex items-center gap-2.5 mb-3">
+            <div className="w-8 h-8 rounded-full bg-black/10 dark:bg-white/10" />
+            <div className="h-3 w-24 rounded bg-black/10 dark:bg-white/10" />
+          </div>
+          <div className="w-full aspect-square rounded-sm bg-black/10 dark:bg-white/10" />
+        </div>
+      ))}
+    </>
+  );
+}
+
+function HomeView({ openPost, openStory, openUser }: Ctx) {
+  const { run } = useLog();
+  const stories = useResource("stories", () => run("get-stories", STORIES_LOAD));
+  const feed = useResource("feed", () => run("get-posts", FEED_LOAD));
+  const groups = stories.data ?? [];
+  const posts = feed.data?.data ?? [];
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col">
       {/* сторис */}
-      <div className="flex gap-3 overflow-x-auto pb-2">
-        {groups.map((g) => (
-          <button key={g.userId} onClick={() => g.stories[0] && openStory(g.stories[0].id)} className="flex flex-col items-center gap-1 shrink-0" onContextMenu={(e) => { e.preventDefault(); openUser(g.userId); }}>
-            <div className="p-0.5 rounded-full bg-gradient-to-tr from-pink-500 to-orange-400">
-              <div className="p-0.5 bg-background rounded-full">
+      {groups.length > 0 && (
+        <div className="flex gap-4 overflow-x-auto pb-4 mb-2 border-b border-[#dbdbdb] dark:border-[#262626] no-scrollbar">
+          {groups.map((g) => (
+            <div key={g.userId} className="flex flex-col items-center gap-1 shrink-0 w-16">
+              <StoryRing onClick={() => (g.stories[0] ? openStory(g.stories[0].id) : openUser(g.userId))}>
                 <Avatar src={g.userImage} name={g.userName} size={56} />
-              </div>
+              </StoryRing>
+              <span className="text-[11px] truncate max-w-16">{g.userName}</span>
             </div>
-            <span className="text-[11px] truncate max-w-16">{g.userName}</span>
-          </button>
-        ))}
-        {groups.length === 0 && <span className="text-xs opacity-40 py-6">сторис нет</span>}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* лента */}
+      {feed.loading && posts.length === 0 && <FeedSkeleton />}
       {posts.map((p) => (
-        <article key={p.postId} className="border border-black/[.07] dark:border-white/10 rounded-2xl overflow-hidden">
-          <div className="flex items-center gap-2.5 p-3">
-            <button onClick={() => openUser(p.userId)}><Avatar src={p.userImage} name={p.userName ?? ""} size={36} /></button>
+        <article key={p.postId} className="mb-4">
+          <div className="flex items-center gap-2.5 py-2">
+            <button onClick={() => openUser(p.userId)}>
+              <StoryRing><Avatar src={p.userImage} name={p.userName ?? ""} size={32} /></StoryRing>
+            </button>
             <button onClick={() => openUser(p.userId)} className="text-sm font-semibold">{p.userName}</button>
-            <span className="ml-auto text-[11px] opacity-40">{fmtDate(p.datePublished)}</span>
+            <span className="text-[#8e8e8e] text-sm">· {relTime(p.datePublished)}</span>
           </div>
-          <button onClick={() => openPost(p.postId)} className="block w-full">
+          <button onClick={() => openPost(p.postId)} className="block w-full rounded-sm overflow-hidden border border-[#dbdbdb] dark:border-[#262626]">
             <Media file={Array.isArray(p.images) ? p.images[0] : (p.images as unknown as string)} className="w-full aspect-square object-cover" />
           </button>
-          <div className="p-3.5 flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5 pt-2">
             <div className="flex items-center gap-4">
-              <button className={"transition hover:opacity-60 " + (p.postLike ? "text-[#ed4956]" : "")} onClick={() => run("like-post", () => postApi.likePost(p.postId)).then(loadFeed)}>
-                <Icon name="heart" size={24} fill={p.postLike} />
+              <button className={"transition hover:opacity-50 " + (p.postLike ? "text-[#ed4956]" : "")} onClick={() => run("like-post", () => postApi.likePost(p.postId)).then(feed.reload)}>
+                <Icon name="heart" size={26} fill={p.postLike} />
               </button>
-              <button className="transition hover:opacity-60" onClick={() => openPost(p.postId)}><Icon name="comment" size={24} /></button>
-              <button className="ml-auto transition hover:opacity-60" onClick={() => run("add-post-favorite", () => postApi.addPostFavorite({ postId: p.postId }))}><Icon name="bookmark" size={24} /></button>
+              <button className="transition hover:opacity-50" onClick={() => openPost(p.postId)}><Icon name="comment" size={26} /></button>
+              <button className="ml-auto transition hover:opacity-50" onClick={() => run("add-post-favorite", () => postApi.addPostFavorite({ postId: p.postId }))}>
+                <Icon name="bookmark" size={26} fill={p.postFavorite} />
+              </button>
             </div>
             <div className="text-sm font-semibold">{p.postLikeCount} отметок «Нравится»</div>
-            {p.title && <div className="text-sm"><b>{p.userName}</b> {p.title}</div>}
-            <button onClick={() => openPost(p.postId)} className="text-xs opacity-50 text-left">Смотреть все комментарии ({p.commentCount})</button>
+            {p.title && <div className="text-sm leading-snug"><b>{p.userName}</b> {p.title}</div>}
+            {p.commentCount > 0 && <button onClick={() => openPost(p.postId)} className="text-sm text-[#8e8e8e] text-left">Смотреть все комментарии ({p.commentCount})</button>}
+            <CommentBox postId={p.postId} onDone={feed.reload} />
           </div>
         </article>
       ))}
-      <Btn variant="ghost" onClick={loadFeed} className="self-center">Обновить ленту</Btn>
+      {!feed.loading && posts.length === 0 && <div className="text-sm text-[#8e8e8e] text-center py-10">Лента пуста</div>}
     </div>
   );
 }
@@ -207,15 +288,14 @@ function HomeView({ myId, openPost, openStory, openUser }: Ctx) {
 
 function ExploreView({ openPost }: Ctx) {
   const { run } = useLog();
-  const [posts, setPosts] = useState<Post[]>([]);
-  const load = () => run("get-posts (explore)", () => postApi.getPosts({ pageNumber: 1, pageSize: 18 })).then((r) => setPosts(r.data)).catch(() => {});
-  useEffect(() => { load(); }, []);
+  const { data, loading } = useResource("explore", () => run("get-posts (explore)", EXPLORE_LOAD));
+  const posts = data?.data ?? [];
   return (
-    <Card title="Интересное" right={<Btn variant="ghost" onClick={load}>Обновить</Btn>}>
-      <div className="grid grid-cols-3 gap-1">
-        {posts.map((p) => <PostThumb key={p.postId} post={p} onClick={() => openPost(p.postId)} />)}
-      </div>
-    </Card>
+    <div className="grid grid-cols-3 gap-1">
+      {loading && posts.length === 0
+        ? Array.from({ length: 12 }).map((_, i) => <div key={i} className="aspect-square bg-black/[.06] dark:bg-white/[.06] animate-pulse" />)
+        : posts.map((p) => <PostThumb key={p.postId} post={p} onClick={() => openPost(p.postId)} />)}
+    </div>
   );
 }
 
@@ -223,32 +303,41 @@ function ExploreView({ openPost }: Ctx) {
 
 function ReelsView({ openPost }: Ctx) {
   const { run } = useLog();
-  const [reels, setReels] = useState<Reel[]>([]);
-  const load = () => run("get-reels", () => postApi.getReels({ pageNumber: 1, pageSize: 6 })).then((r) => setReels(r.data)).catch(() => {});
-  useEffect(() => { load(); }, []);
+  const { data, loading, reload } = useResource("reels", () => run("get-reels", REELS_LOAD));
+  const reels = data?.data ?? [];
   return (
-    <Card title="Reels" right={<Btn variant="ghost" onClick={load}>Обновить</Btn>}>
-      <div className="flex flex-col gap-4">
-        {reels.map((r) => (
-          <div key={r.postId} className="border border-black/[.07] dark:border-white/10 rounded-2xl overflow-hidden">
-            <div className="flex items-center gap-2.5 p-3">
-              <Avatar src={r.userImage} name={r.userName} size={34} />
+    <div className="flex flex-col items-center gap-4">
+      {loading && reels.length === 0 && <div className="w-full max-w-[380px] aspect-[9/16] rounded-xl bg-black/[.06] dark:bg-white/[.06] animate-pulse" />}
+      {reels.map((r) => (
+        <div key={r.postId} className="relative w-full max-w-[380px] aspect-[9/16] rounded-xl overflow-hidden bg-black">
+          <Media file={r.images} className="absolute inset-0 w-full h-full object-cover" />
+          {/* правый рельс действий */}
+          <div className="absolute right-2.5 bottom-24 flex flex-col items-center gap-5 text-white">
+            <button className="flex flex-col items-center gap-1 hover:opacity-70 transition" onClick={() => run("like-post", () => postApi.likePost(r.postId)).then(reload)}>
+              <Icon name="heart" size={28} fill={r.postLike} className={r.postLike ? "text-[#ed4956]" : ""} />
+              <span className="text-xs">{r.postLikeCount}</span>
+            </button>
+            <button className="flex flex-col items-center gap-1 hover:opacity-70 transition" onClick={() => openPost(r.postId)}>
+              <Icon name="comment" size={28} />
+              <span className="text-xs">{r.commentCount}</span>
+            </button>
+          </div>
+          {/* нижняя инфа об авторе */}
+          <div className="absolute left-0 bottom-0 inset-x-0 p-3.5 bg-gradient-to-t from-black/70 to-transparent text-white">
+            <div className="flex items-center gap-2.5">
+              <Avatar src={r.userImage} name={r.userName} size={32} />
               <b className="text-sm">{r.userName}</b>
-              {!r.isSubscriber && <Btn className="ml-auto py-1 text-xs" onClick={() => run("follow", () => followingApi.follow(r.userId))}>Подписаться</Btn>}
-            </div>
-            <Media file={r.images} className="w-full max-h-[70vh] object-contain bg-black" />
-            <div className="p-3.5 text-sm flex items-center gap-5">
-              <button className={"flex items-center gap-1.5 transition hover:opacity-60 " + (r.postLike ? "text-[#ed4956]" : "")} onClick={() => run("like-post", () => postApi.likePost(r.postId)).then(load)}>
-                <Icon name="heart" size={22} fill={r.postLike} /> {r.postLikeCount}
-              </button>
-              <button className="flex items-center gap-1.5 transition hover:opacity-60" onClick={() => openPost(r.postId)}>
-                <Icon name="comment" size={22} /> {r.commentCount}
-              </button>
+              {!r.isSubscriber && (
+                <button className="ml-1 px-2 py-1 text-xs font-semibold border border-white/70 rounded-md hover:bg-white/10 transition" onClick={() => run("follow", () => followingApi.follow(r.userId))}>
+                  Подписаться
+                </button>
+              )}
             </div>
           </div>
-        ))}
-      </div>
-    </Card>
+        </div>
+      ))}
+      {!loading && reels.length === 0 && <div className="text-sm text-[#8e8e8e] py-10">Reels нет</div>}
+    </div>
   );
 }
 
@@ -432,6 +521,7 @@ function ProfileView({ myId, openPost, openUser }: { myId?: string; openPost: (i
   const [gender, setGender] = useState(0);
   const [showList, setShowList] = useState<"followers" | "following" | null>(null);
   const [view, setView] = useState<"posts" | "favs">("posts");
+  const [edit, setEdit] = useState(false);
 
   const loadAll = useCallback(() => {
     run("get-my-profile", () => userProfileApi.getMyProfile()).then((r) => { setMe(r.data); setAbout(r.data.about ?? ""); }).catch(() => {});
@@ -447,37 +537,45 @@ function ProfileView({ myId, openPost, openUser }: { myId?: string; openPost: (i
   const list = showList === "followers" ? subers : subs;
 
   return (
-    <div className="flex flex-col gap-4">
-      <Card>
-        <div className="flex items-center gap-4">
-          <label className="cursor-pointer relative">
-            <Avatar src={me?.image} name={me?.userName} size={72} />
-            <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) run("update-avatar", () => userProfileApi.updateUserImageProfile(f)).then(loadAll); }} />
-          </label>
-          <div className="text-sm">
-            <div className="text-lg font-bold">@{me?.userName}</div>
-            <div className="flex gap-4 mt-1">
-              <span><b>{me?.postCount ?? posts.length}</b> постов</span>
-              <button onClick={() => setShowList("followers")}><b>{me?.subscribersCount ?? 0}</b> подписч.</button>
-              <button onClick={() => setShowList("following")}><b>{me?.subscriptionsCount ?? 0}</b> подписок</button>
-            </div>
-            <div className="opacity-70 mt-1">{me?.firstName} {me?.lastName} · {me?.gender}</div>
-            <div className="opacity-70">{me?.about}</div>
+    <div className="flex flex-col">
+      {/* хедер профиля как в веб-инстаграме */}
+      <header className="flex items-start gap-6 sm:gap-14 px-2 sm:px-8 pb-8">
+        <label className="cursor-pointer relative shrink-0" title="Сменить аватар">
+          <div className="w-20 h-20 sm:w-[150px] sm:h-[150px]"><Avatar src={me?.image} name={me?.userName} size={150} /></div>
+          <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) run("update-avatar", () => userProfileApi.updateUserImageProfile(f)).then(loadAll); }} />
+        </label>
+        <div className="flex flex-col gap-4 min-w-0 pt-1">
+          <div className="flex items-center gap-4 flex-wrap">
+            <h1 className="text-xl font-normal">{me?.userName}</h1>
+            <button onClick={() => setEdit((v) => !v)} className="px-4 py-1.5 text-sm font-semibold rounded-lg bg-[#efefef] dark:bg-[#363636] hover:opacity-80 transition">Редактировать профиль</button>
+            <button onClick={() => run("delete-avatar", () => userProfileApi.deleteUserImageProfile()).then(loadAll)} className="px-4 py-1.5 text-sm font-semibold rounded-lg bg-[#efefef] dark:bg-[#363636] hover:opacity-80 transition">Удалить фото</button>
           </div>
+          <div className="flex gap-8 text-sm">
+            <span><b>{me?.postCount ?? posts.length}</b> публикаций</span>
+            <button onClick={() => setShowList("followers")}><b>{me?.subscribersCount ?? 0}</b> подписчиков</button>
+            <button onClick={() => setShowList("following")}><b>{me?.subscriptionsCount ?? 0}</b> подписок</button>
+          </div>
+          <div className="text-sm">
+            <div className="font-semibold">{me?.firstName} {me?.lastName}</div>
+            {me?.about && <div className="whitespace-pre-line">{me.about}</div>}
+            <div className="text-[#8e8e8e] text-xs mt-0.5 break-all">{me?.gender} · id: {myId?.slice(0, 8)}…</div>
+          </div>
+          {edit && (
+            <div className="flex flex-col gap-2 p-4 rounded-xl border border-[#dbdbdb] dark:border-[#262626] max-w-md">
+              <Input placeholder="О себе" value={about} onChange={(e) => setAbout(e.target.value)} />
+              <div className="flex items-center gap-2">
+                <select value={gender} onChange={(e) => setGender(Number(e.target.value))} className="rounded-lg border border-[#dbdbdb] dark:border-[#363636] bg-transparent px-3 py-2 text-sm">
+                  <option value={0}>Мужской</option>
+                  <option value={1}>Женский</option>
+                </select>
+                <Btn onClick={() => run("update-user-profile", () => userProfileApi.updateUserProfile({ about, gender })).then(() => { setEdit(false); loadAll(); })}>Сохранить</Btn>
+              </div>
+            </div>
+          )}
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <Input placeholder="о себе" value={about} onChange={(e) => setAbout(e.target.value)} className="flex-1" />
-          <select value={gender} onChange={(e) => setGender(Number(e.target.value))} className="rounded-lg border border-black/15 dark:border-white/20 bg-transparent px-2 text-sm">
-            <option value={0}>М</option>
-            <option value={1}>Ж</option>
-          </select>
-          <Btn onClick={() => run("update-user-profile", () => userProfileApi.updateUserProfile({ about, gender })).then(loadAll)}>Сохранить</Btn>
-          <Btn variant="ghost" onClick={() => run("delete-avatar", () => userProfileApi.deleteUserImageProfile()).then(loadAll)}>Удалить аватар</Btn>
-        </div>
-        <div className="text-[11px] opacity-40 break-all">myId: {myId}</div>
-      </Card>
+      </header>
 
-      <div className="flex justify-center gap-8 text-xs font-semibold uppercase tracking-wide border-t border-black/[.07] dark:border-white/10 pt-1">
+      <div className="flex justify-center gap-12 text-xs font-semibold uppercase tracking-wide border-t border-[#dbdbdb] dark:border-[#262626]">
         <button onClick={() => setView("posts")} className={"flex items-center gap-1.5 py-3 -mt-px border-t transition " + (view === "posts" ? "border-foreground" : "border-transparent opacity-50")}>
           <Icon name="grid" size={14} /> Посты
         </button>
