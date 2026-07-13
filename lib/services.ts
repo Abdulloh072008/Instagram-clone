@@ -26,8 +26,8 @@ export const posts = {
   reels: (pageNumber = 1, pageSize = 10) =>
     api.get<Paged<Post>>("/Post/get-reels", { PageNumber: pageNumber, PageSize: pageSize }),
 
-  mine: (pageNumber = 1, pageSize = 30) =>
-    api.get<Paged<Post>>("/Post/get-my-posts", { PageNumber: pageNumber, PageSize: pageSize }),
+  // get-my-posts returns a bare array (no pagination envelope) and ignores query params.
+  mine: () => api.get<Post[]>("/Post/get-my-posts"),
 
   byUser: (userId: string, pageNumber = 1, pageSize = 30) =>
     api.get<Paged<Post>>("/Post/get-posts", {
