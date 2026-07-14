@@ -58,7 +58,18 @@ export default function ProfileView({
   }
 
   return (
-    <div className="mx-auto max-w-[935px] px-4 py-6">
+    <div className="relative mx-auto max-w-[935px] px-4 py-6">
+      {/* Options menu — top-right corner (own profile), like real Instagram */}
+      {isMe && (
+        <button
+          onClick={() => setMenuOpen(true)}
+          aria-label="Options"
+          className="absolute right-4 top-5 z-10 rounded-lg p-1.5 text-neutral-200 hover:bg-neutral-800"
+        >
+          <MoreIcon size={26} />
+        </button>
+      )}
+
       {/* header */}
       <header className="flex flex-col items-center gap-6 border-b border-line pb-8 sm:flex-row sm:items-start sm:gap-14 sm:pl-8">
         <Avatar src={profile.image} name={profile.userName} size={150} className="shrink-0" />
@@ -74,13 +85,6 @@ export default function ProfileView({
                 >
                   Edit profile
                 </Link>
-                <button
-                  onClick={() => setMenuOpen(true)}
-                  aria-label="Options"
-                  className="rounded-lg p-1.5 hover:bg-neutral-800"
-                >
-                  <MoreIcon size={24} />
-                </button>
               </>
             ) : (
               <>
