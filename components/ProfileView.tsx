@@ -10,7 +10,24 @@ import { chats, reposts as repostsApi, posts as postsApi } from "@/lib/services"
 import { useAuth } from "@/lib/auth";
 import { formatCount } from "@/lib/utils";
 import type { Post, UserProfile } from "@/lib/types";
-import { GridIcon, ReelsIcon, RepostIcon, TaggedIcon, MoreIcon } from "./Icons";
+import {
+  GridIcon,
+  ReelsIcon,
+  RepostIcon,
+  TaggedIcon,
+  MoreIcon,
+  SettingsIcon,
+  BellIcon,
+  BookmarkIcon,
+  LogoutIcon,
+} from "./Icons";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "./ui/dropdown-menu";
 
 export default function ProfileView({
   userId,
@@ -30,7 +47,6 @@ export default function ProfileView({
   const [tab, setTab] = useState<"posts" | "reels" | "reposts" | "tagged">("posts");
   const [reposts, setReposts] = useState<Post[] | null>(null);
   const [followers, setFollowers] = useState(profile.subscribersCount);
-  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     if (tab !== "reposts" || reposts !== null) return;
@@ -61,13 +77,29 @@ export default function ProfileView({
     <div className="relative mx-auto max-w-[935px] px-4 py-6">
       {/* Options menu — top-right corner (own profile), like real Instagram */}
       {isMe && (
-        <button
-          onClick={() => setMenuOpen(true)}
-          aria-label="Options"
-          className="absolute right-4 top-5 z-10 rounded-lg p-1.5 text-neutral-200 hover:bg-neutral-800"
-        >
-          <MoreIcon size={26} />
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label="Options"
+            className="absolute right-4 top-5 z-10 rounded-lg p-1.5 text-neutral-200 outline-none hover:bg-neutral-800"
+          >
+            <MoreIcon size={26} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onSelect={() => router.push("/profile/edit")}>
+              <SettingsIcon size={18} /> Settings
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => router.push("/notifications")}>
+              <BellIcon size={18} /> Your activity
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => router.push("/profile")}>
+              <BookmarkIcon size={18} /> Saved
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={logout} className="font-semibold text-ig-red">
+              <LogoutIcon size={18} /> Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       )}
 
       {/* header */}
@@ -163,59 +195,6 @@ export default function ProfileView({
           <p className="py-16 text-center text-neutral-500">Nothing here yet</p>
         )}
       </div>
-
-      {/* Instagram-style options dialog (own profile) */}
-      {menuOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
-          onClick={() => setMenuOpen(false)}
-        >
-          <div
-            className="w-full max-w-sm overflow-hidden rounded-2xl bg-neutral-800 text-center text-sm"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => {
-                setMenuOpen(false);
-                router.push("/profile/edit");
-              }}
-              className="w-full border-b border-neutral-700 py-3.5 hover:bg-neutral-700/50"
-            >
-              Settings
-            </button>
-            <button
-              onClick={() => {
-                setMenuOpen(false);
-                router.push("/notifications");
-              }}
-              className="w-full border-b border-neutral-700 py-3.5 hover:bg-neutral-700/50"
-            >
-              Your activity
-            </button>
-            <button
-              onClick={() => {
-                setMenuOpen(false);
-                router.push("/profile");
-              }}
-              className="w-full border-b border-neutral-700 py-3.5 hover:bg-neutral-700/50"
-            >
-              Saved
-            </button>
-            <button
-              onClick={logout}
-              className="w-full border-b border-neutral-700 py-3.5 font-bold text-ig-red hover:bg-neutral-700/50"
-            >
-              Log out
-            </button>
-            <button
-              onClick={() => setMenuOpen(false)}
-              className="w-full py-3.5 hover:bg-neutral-700/50"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
