@@ -184,6 +184,24 @@ export default function ProfileView({
               Settings
             </button>
             <button
+              onClick={() => {
+                setMenuOpen(false);
+                router.push("/notifications");
+              }}
+              className="w-full border-b border-neutral-700 py-3.5 hover:bg-neutral-700/50"
+            >
+              Your activity
+            </button>
+            <button
+              onClick={() => {
+                setMenuOpen(false);
+                router.push("/profile");
+              }}
+              className="w-full border-b border-neutral-700 py-3.5 hover:bg-neutral-700/50"
+            >
+              Saved
+            </button>
+            <button
               onClick={logout}
               className="w-full border-b border-neutral-700 py-3.5 font-bold text-ig-red hover:bg-neutral-700/50"
             >
