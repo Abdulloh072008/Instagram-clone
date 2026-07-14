@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { notifications as notifApi } from "@/lib/services";
@@ -16,16 +16,21 @@ import {
   ProfileIcon,
   PlusSquare,
   BellIcon,
+  MenuIcon,
+  SettingsIcon,
+  BookmarkIcon,
+  HeartIcon,
 } from "./Icons";
-import Avatar from "./Avatar";
 
 type Panel = "search" | "notifications" | null;
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, logout } = useAuth();
   const [panel, setPanel] = useState<Panel>(null);
   const [unread, setUnread] = useState(0);
+  const [moreOpen, setMoreOpen] = useState(false);
 
   const collapsed = panel !== null;
 
@@ -61,22 +66,18 @@ export default function Sidebar() {
   const showLabels = !collapsed;
   const labelCls = showLabels ? "hidden xl:block" : "hidden";
 
-  // Link nav item that also closes any open panel.
-  const NavLink = ({
-    href,
-    label,
-    Icon,
-    ActiveIcon,
-  }: {
-    href: string;
-    label: string;
-    Icon: typeof HomeIcon;
-    ActiveIcon: typeof HomeIcon;
-  }) => {
+  // Render helpers (plain functions, not components — avoids remounting on render).
+  const navLink = (
+    href: string,
+    label: string,
+    Icon: typeof HomeIcon,
+    ActiveIcon: typeof HomeIcon,
+  ) => {
     const active = isActive(href) && !collapsed;
     const I = active ? ActiveIcon : Icon;
     return (
       <Link
+        key={href}
         href={href}
         onClick={closePanel}
         className={`flex items-center gap-4 rounded-lg px-3 py-3 transition hover:bg-neutral-900 ${
@@ -89,19 +90,9 @@ export default function Sidebar() {
     );
   };
 
-  // Button nav item that toggles a slide-out panel.
-  const NavButton = ({
-    p,
-    label,
-    Icon,
-    badge,
-  }: {
-    p: Panel;
-    label: string;
-    Icon: typeof HomeIcon;
-    badge?: number;
-  }) => (
+  const navButton = (p: Panel, label: string, Icon: typeof HomeIcon, badge?: number) => (
     <button
+      key={label}
       onClick={() => togglePanel(p)}
       className={`flex w-full items-center gap-4 rounded-lg px-3 py-3 transition hover:bg-neutral-900 ${
         panel === p ? "font-semibold" : "font-normal"
@@ -138,24 +129,71 @@ export default function Sidebar() {
         </Link>
 
         <nav className="flex flex-1 flex-col gap-1">
-          <NavLink href="/" label="Home" Icon={HomeIcon} ActiveIcon={HomeFilled} />
-          <NavButton p="search" label="Search" Icon={SearchIcon} />
-          <NavLink href="/reels" label="Reels" Icon={ReelsIcon} ActiveIcon={ReelsIcon} />
-          <NavLink href="/messages" label="Messages" Icon={MessageIcon} ActiveIcon={MessageIcon} />
-          <NavButton p="notifications" label="Notifications" Icon={BellIcon} badge={unread} />
-          <NavLink href="/profile" label="Profile" Icon={ProfileIcon} ActiveIcon={ProfileIcon} />
-          <NavLink href="/create" label="Create" Icon={PlusSquare} ActiveIcon={PlusSquare} />
+          {navLink("/", "Home", HomeIcon, HomeFilled)}
+          {navButton("search", "Search", SearchIcon)}
+          {navLink("/reels", "Reels", ReelsIcon, ReelsIcon)}
+          {navLink("/messages", "Messages", MessageIcon, MessageIcon)}
+          {navButton("notifications", "Notifications", BellIcon, unread)}
+          {navLink("/profile", "Profile", ProfileIcon, ProfileIcon)}
+          {navLink("/create", "Create", PlusSquare, PlusSquare)}
         </nav>
 
-        <div className="mt-auto">
-          <Link
-            href="/profile"
-            onClick={closePanel}
-            className="flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-neutral-900"
+        <div className="relative mt-auto">
+          {/* Real-Instagram "More" popup — opens above the button */}
+          {moreOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setMoreOpen(false)} />
+              <div className="animate-fade absolute bottom-full left-0 z-50 mb-2 w-64 overflow-hidden rounded-2xl bg-neutral-800 p-2 text-sm shadow-2xl">
+                <button
+                  onClick={() => {
+                    setMoreOpen(false);
+                    closePanel();
+                    router.push("/profile/edit");
+                  }}
+                  className="flex w-full items-center gap-4 rounded-lg px-3 py-2.5 hover:bg-neutral-700"
+                >
+                  <SettingsIcon size={20} /> Settings
+                </button>
+                <button
+                  onClick={() => {
+                    setMoreOpen(false);
+                    closePanel();
+                    router.push("/notifications");
+                  }}
+                  className="flex w-full items-center gap-4 rounded-lg px-3 py-2.5 hover:bg-neutral-700"
+                >
+                  <HeartIcon size={20} /> Your activity
+                </button>
+                <button
+                  onClick={() => {
+                    setMoreOpen(false);
+                    closePanel();
+                    router.push("/profile");
+                  }}
+                  className="flex w-full items-center gap-4 rounded-lg px-3 py-2.5 hover:bg-neutral-700"
+                >
+                  <BookmarkIcon size={20} /> Saved
+                </button>
+                <div className="my-1.5 h-px bg-neutral-700" />
+                <button
+                  onClick={logout}
+                  className="flex w-full items-center gap-4 rounded-lg px-3 py-2.5 hover:bg-neutral-700"
+                >
+                  Log out
+                </button>
+              </div>
+            </>
+          )}
+
+          <button
+            onClick={() => setMoreOpen((o) => !o)}
+            className={`flex w-full items-center gap-4 rounded-lg px-3 py-3 transition hover:bg-neutral-900 ${
+              moreOpen ? "font-semibold" : ""
+            }`}
           >
-            <Avatar name={user?.userName} size={26} />
-            <span className={`truncate text-sm ${labelCls}`}>{user?.userName}</span>
-          </Link>
+            <MenuIcon size={26} />
+            <span className={labelCls}>More</span>
+          </button>
         </div>
         {/* Slide-out panel — absolute so it tracks the (centered) sidebar
             instead of the viewport edge, at any screen width. */}
