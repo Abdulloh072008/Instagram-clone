@@ -254,8 +254,8 @@ export default function PostCard({
           {liked ? <HeartFilled size={26} className="text-ig-red" /> : <HeartIcon size={26} />}
         </button>
         <button
-          onClick={() => setShowAllComments(true)}
-          className="transition hover:text-neutral-400 active:scale-90"
+          onClick={() => setShowAllComments((v) => !v)}
+          className={`transition active:scale-90 ${showAllComments ? "text-ig-blue" : "hover:text-neutral-400"}`}
         >
           <CommentIcon size={26} />
         </button>
