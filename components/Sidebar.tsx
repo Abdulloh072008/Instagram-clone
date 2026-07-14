@@ -16,6 +16,7 @@ import {
   ProfileIcon,
   PlusSquare,
   BellIcon,
+  MenuIcon,
 } from "./Icons";
 
 type Panel = "search" | "notifications" | null;
@@ -25,8 +26,10 @@ export default function Sidebar() {
   const { user } = useAuth();
   const [panel, setPanel] = useState<Panel>(null);
   const [unread, setUnread] = useState(0);
+  const [collapsedManual, setCollapsedManual] = useState(false);
 
-  const collapsed = panel !== null;
+  // Collapsed when the user toggles it, or while a slide-out panel is open.
+  const collapsed = collapsedManual || panel !== null;
 
   // Poll the unread notification count (no-op if the backend endpoint isn't live).
   useEffect(() => {
@@ -111,16 +114,19 @@ export default function Sidebar() {
           collapsed ? "" : "xl:w-64"
         }`}
       >
-        <Link href="/" onClick={closePanel} className="mb-8 px-3">
-          {collapsed ? (
-            <span className="text-2xl">◈</span>
-          ) : (
-            <>
-              <span className="hidden text-2xl font-semibold tracking-tight xl:block">Instagram</span>
-              <span className="text-2xl xl:hidden">◈</span>
-            </>
-          )}
-        </Link>
+        {/* Collapse toggle + logo */}
+        <div className="mb-8 flex items-center gap-1 px-1.5">
+          <button
+            onClick={() => setCollapsedManual((o) => !o)}
+            aria-label={collapsedManual ? "Expand sidebar" : "Collapse sidebar"}
+            className="rounded-lg p-2 transition hover:bg-neutral-900"
+          >
+            <MenuIcon size={24} />
+          </button>
+          <Link href="/" onClick={closePanel} className={labelCls}>
+            <span className="text-2xl font-semibold tracking-tight">Instagram</span>
+          </Link>
+        </div>
 
         <nav className="flex flex-1 flex-col gap-1">
           {navLink("/", "Home", HomeIcon, HomeFilled)}
