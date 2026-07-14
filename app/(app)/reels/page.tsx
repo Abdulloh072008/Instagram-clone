@@ -54,8 +54,7 @@ function Reel({ post }: { post: Post }) {
   }
 
   return (
-    <section className="relative flex h-full w-full snap-start items-center justify-center">
-      <div className="relative h-full max-h-[92vh] w-full max-w-[440px] overflow-hidden rounded-none bg-neutral-950 md:rounded-xl">
+    <div className="relative h-[88vh] max-h-[88vh] w-full max-w-[440px] overflow-hidden rounded-none bg-neutral-950 md:rounded-xl">
         {isVideo ? (
           <video
             src={imageUrl(media)}
@@ -109,7 +108,6 @@ function Reel({ post }: { post: Post }) {
           )}
         </div>
       </div>
-    </section>
   );
 }
 
@@ -118,11 +116,25 @@ export default function ReelsPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    postsApi
-      .reels(1, 20)
-      .then((res) => setReels((res.data ?? []).filter((p) => p.images.length)))
-      .catch(() => {})
-      .finally(() => setLoading(false));
+    let alive = true;
+    // get-reels 500s intermittently; retry a couple times before giving up.
+    async function load(attempt = 0) {
+      try {
+        const res = await postsApi.reels(1, 20);
+        const items = (res.data ?? []).filter((p) => p.images.length);
+        if (!alive) return;
+        if (items.length === 0 && attempt < 2) return load(attempt + 1);
+        setReels(items);
+        setLoading(false);
+      } catch {
+        if (attempt < 2) return load(attempt + 1);
+        if (alive) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      alive = false;
+    };
   }, []);
 
   if (loading) {
@@ -140,9 +152,12 @@ export default function ReelsPage() {
   }
 
   return (
-    <div className="no-scrollbar h-screen snap-y snap-mandatory overflow-y-scroll">
+    <div className="no-scrollbar h-[100dvh] snap-y snap-mandatory overflow-y-scroll overscroll-y-contain">
       {reels.map((post) => (
-        <div key={post.postId} className="h-screen py-2">
+        <div
+          key={post.postId}
+          className="flex h-[100dvh] snap-start snap-always items-center justify-center"
+        >
           <Reel post={post} />
         </div>
       ))}
