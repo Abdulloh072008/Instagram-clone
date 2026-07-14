@@ -117,17 +117,17 @@ export default function ReelsPage() {
 
   useEffect(() => {
     let alive = true;
-    // get-reels 500s intermittently; retry a couple times before giving up.
+    // get-reels is slow and sometimes hangs; small page + retry a few times before giving up.
     async function load(attempt = 0) {
       try {
-        const res = await postsApi.reels(1, 20);
+        const res = await postsApi.reels(1, 8);
         const items = (res.data ?? []).filter((p) => p.images.length);
         if (!alive) return;
-        if (items.length === 0 && attempt < 2) return load(attempt + 1);
+        if (items.length === 0 && attempt < 3) return load(attempt + 1);
         setReels(items);
         setLoading(false);
       } catch {
-        if (attempt < 2) return load(attempt + 1);
+        if (attempt < 3) return load(attempt + 1);
         if (alive) setLoading(false);
       }
     }
