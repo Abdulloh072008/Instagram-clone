@@ -56,15 +56,18 @@ export const ProfileIcon = (p: IconProps) => (
   </svg>
 );
 
+const HEART_PATH =
+  "M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z";
+
 export const HeartIcon = (p: IconProps) => (
   <svg {...base(p)}>
-    <path d="M12 20s-7.5-4.6-10-9.2C.6 8 1.7 4.5 5 4.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.3 0 4.4 3.5 3 6.3C19.5 15.4 12 20 12 20Z" />
+    <path d={HEART_PATH} />
   </svg>
 );
 
 export const HeartFilled = (p: IconProps) => (
   <svg {...base(p)} fill="currentColor" stroke="none">
-    <path d="M12 20s-7.5-4.6-10-9.2C.6 8 1.7 4.5 5 4.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.3 0 4.4 3.5 3 6.3C19.5 15.4 12 20 12 20Z" />
+    <path d={HEART_PATH} />
   </svg>
 );
 
