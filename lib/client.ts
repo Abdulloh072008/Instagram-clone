@@ -31,8 +31,12 @@ export function clearToken() {
 
 type Query = Record<string, string | number | boolean | null | undefined>;
 
+const isAbsolute = (path: string) => /^https?:\/\//.test(path);
+
 function buildUrl(path: string, query?: Query): string {
-  const url = new URL(API_BASE + path);
+  // Absolute paths (e.g. the companion backend) are used as-is; relative
+  // paths are resolved against the main API base.
+  const url = new URL(isAbsolute(path) ? path : API_BASE + path);
   if (query) {
     for (const [k, v] of Object.entries(query)) {
       if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, String(v));
@@ -58,7 +62,9 @@ async function parse(res: Response): Promise<unknown> {
 async function send(path: string, init: RequestInit, query?: Query): Promise<unknown> {
   const token = getToken();
   const headers = new Headers(init.headers);
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  // The companion backend (absolute URLs) has no auth; don't send the JWT there
+  // (avoids an unnecessary CORS preflight on the Authorization header).
+  if (token && !isAbsolute(path)) headers.set("Authorization", `Bearer ${token}`);
   const res = await fetch(buildUrl(path, query), { ...init, headers });
   return parse(res);
 }

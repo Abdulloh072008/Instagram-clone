@@ -6,6 +6,7 @@ import Avatar from "./Avatar";
 import Img from "./Img";
 import FollowButton from "./FollowButton";
 import { notifications as notifApi } from "@/lib/services";
+import { useAuth } from "@/lib/auth";
 import { timeAgo } from "@/lib/utils";
 import type { AppNotification } from "@/lib/types";
 import { BellIcon } from "./Icons";
@@ -26,26 +27,29 @@ function notifText(n: AppNotification): string {
 }
 
 export default function NotificationsPanel({ onNavigate }: { onNavigate: () => void }) {
+  const { user } = useAuth();
   const [items, setItems] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(true);
 
   useEffect(() => {
+    const uid = user?.id;
+    if (!uid) return;
     let alive = true;
     notifApi
-      .list(1, 40)
+      .list(uid, 1, 40)
       .then((res) => {
         if (!alive) return;
         setItems(res.data ?? []);
         setReady(true);
-        notifApi.markAllRead().catch(() => {});
+        notifApi.markAllRead(uid).catch(() => {});
       })
       .catch(() => alive && setReady(false))
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;
     };
-  }, []);
+  }, [user?.id]);
 
   return (
     <div className="flex h-full flex-col">

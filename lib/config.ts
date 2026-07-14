@@ -4,6 +4,10 @@
 export const API_BASE = "https://instagram-api.softclub.tj";
 export const IMAGE_BASE = `${API_BASE}/images`;
 
+// Companion backend (C#) for features missing in the main API — no JWT,
+// controllers take userId explicitly. Hosts Notification/Call/Reaction/Repost/Location.
+export const EXTRA_API_BASE = "https://instagramextraapi.onrender.com";
+
 /** Build a full URL for an image filename returned by the API. */
 export function imageUrl(name?: string | null): string {
   if (!name) return "";
