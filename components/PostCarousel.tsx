@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Img from "./Img";
 import FeedVideo from "./FeedVideo";
 import { isVideo } from "@/lib/utils";
 
-/** Media carousel: smooth translate-x slide, video slides play via FeedVideo. */
+/** Media carousel: smooth translate-x slide + drag/swipe to the next slide; videos play via FeedVideo. */
 export default function PostCarousel({
   images,
   alt = "",
@@ -16,14 +16,49 @@ export default function PostCarousel({
   className?: string;
 }) {
   const [slide, setSlide] = useState(0);
+  const [drag, setDrag] = useState(0); // px offset while dragging
+  const [dragging, setDragging] = useState(false);
+  const start = useRef<number | null>(null);
+  const width = useRef(0);
   const n = images.length;
   if (n === 0) return null;
+
+  function go(to: number) {
+    setSlide(Math.max(0, Math.min(n - 1, to)));
+  }
+
+  function onDown(e: React.PointerEvent) {
+    if (n < 2) return;
+    start.current = e.clientX;
+    width.current = e.currentTarget.getBoundingClientRect().width;
+    setDragging(true);
+  }
+  function onMove(e: React.PointerEvent) {
+    if (start.current === null) return;
+    let dx = e.clientX - start.current;
+    // resist dragging past the first/last slide
+    if ((slide === 0 && dx > 0) || (slide === n - 1 && dx < 0)) dx *= 0.3;
+    setDrag(dx);
+  }
+  function onUp() {
+    if (start.current === null) return;
+    const threshold = width.current * 0.2 || 60;
+    if (drag <= -threshold) go(slide + 1);
+    else if (drag >= threshold) go(slide - 1);
+    start.current = null;
+    setDragging(false);
+    setDrag(0);
+  }
 
   return (
     <div className={`relative h-full w-full overflow-hidden ${className}`}>
       <div
-        className="flex h-full w-full transition-transform duration-300 ease-out"
-        style={{ transform: `translateX(-${slide * 100}%)` }}
+        className={`flex h-full w-full ${dragging ? "" : "transition-transform duration-300 ease-out"} ${n > 1 ? "touch-pan-y" : ""}`}
+        style={{ transform: `translateX(calc(-${slide * 100}% + ${drag}px))` }}
+        onPointerDown={onDown}
+        onPointerMove={onMove}
+        onPointerUp={onUp}
+        onPointerCancel={onUp}
       >
         {images.map((m, i) => (
           <div key={i} className="relative h-full w-full shrink-0 basis-full">
@@ -43,7 +78,7 @@ export default function PostCarousel({
           </div>
           {slide > 0 && (
             <button
-              onClick={() => setSlide((s) => s - 1)}
+              onClick={() => go(slide - 1)}
               className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 px-2 py-1 text-sm"
             >
               ‹
@@ -51,7 +86,7 @@ export default function PostCarousel({
           )}
           {slide < n - 1 && (
             <button
-              onClick={() => setSlide((s) => s + 1)}
+              onClick={() => go(slide + 1)}
               className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 px-2 py-1 text-sm"
             >
               ›

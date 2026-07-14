@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Avatar from "./Avatar";
 import { timeAgo } from "@/lib/utils";
@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth";
 import type { PostComment } from "@/lib/types";
 import { CloseIcon } from "./Icons";
 
-/** Scrollable comment list (avatar + name + text) with an add-comment box. */
+/** Scrollable comment list (account photo + name + text) with an add-comment box. */
 export default function CommentsPanel({
   postId,
   initial,
@@ -24,27 +24,43 @@ export default function CommentsPanel({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
 
+  // add-comment doesn't echo the comment, and embedded feed/reels comments omit avatars —
+  // so pull the real list (with account photos) from get-post-by-id.
+  useEffect(() => {
+    let alive = true;
+    postsApi
+      .byId(postId)
+      .then((res) => {
+        if (alive && res.data?.comments) setComments(res.data.comments);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [postId]);
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const text = draft.trim();
     if (!text || sending) return;
     setSending(true);
+    const temp: PostComment = {
+      postCommentId: Date.now(),
+      userId: user?.id ?? "me",
+      userName: user?.userName ?? "You",
+      userImage: null,
+      dateCommented: new Date().toISOString(),
+      comment: text,
+    };
+    setComments((c) => [temp, ...c]);
+    setDraft("");
     try {
       await postsApi.addComment(postId, text);
-      setComments((c) => [
-        {
-          postCommentId: Date.now(),
-          userId: user?.id ?? "me",
-          userName: user?.userName ?? "You",
-          userImage: null,
-          dateCommented: new Date().toISOString(),
-          comment: text,
-        },
-        ...c,
-      ]);
-      setDraft("");
+      // reconcile: server list carries the real account photo for the new comment.
+      const res = await postsApi.byId(postId);
+      if (res.data?.comments) setComments(res.data.comments);
     } catch {
-      /* ignore */
+      setComments((c) => c.filter((x) => x.postCommentId !== temp.postCommentId));
     } finally {
       setSending(false);
     }
