@@ -19,7 +19,15 @@ import {
   BookmarkIcon,
   BookmarkFilled,
   MoreIcon,
+  TrashIcon,
 } from "./Icons";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "./ui/dropdown-menu";
 
 export default function PostCard({
   post,
@@ -31,7 +39,6 @@ export default function PostCard({
   onDeleted?: () => void;
 }) {
   const { user } = useAuth();
-  const [menuOpen, setMenuOpen] = useState(false);
   const [deleted, setDeleted] = useState(false);
   const [reposted, setReposted] = useState(false);
   const [liked, setLiked] = useState(post.postLike);
@@ -79,7 +86,6 @@ export default function PostCard({
   const canDelete = !!user && post.userId === user.id;
 
   async function deletePost() {
-    setMenuOpen(false);
     try {
       await postsApi.remove(post.postId);
       setDeleted(true);
@@ -91,7 +97,6 @@ export default function PostCard({
 
   async function removeRepost() {
     if (!user) return;
-    setMenuOpen(false);
     try {
       await repostsApi.remove(user.id, post.postId);
       setDeleted(true);
@@ -163,43 +168,27 @@ export default function PostCard({
           {post.title && <p className="truncate text-xs text-neutral-400">{post.title}</p>}
         </div>
         {(isRepost || canDelete) && (
-          <div className="relative">
-            <button
-              onClick={() => setMenuOpen((o) => !o)}
-              className="text-neutral-300 hover:text-white"
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="Post options"
+              className="text-neutral-300 outline-none hover:text-white"
             >
               <MoreIcon size={20} />
-            </button>
-            {menuOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                <div className="absolute right-0 top-7 z-20 w-40 overflow-hidden rounded-lg border border-line bg-elevated text-sm shadow-lg">
-                  {isRepost && (
-                    <button
-                      onClick={removeRepost}
-                      className="block w-full px-4 py-2.5 text-left font-semibold text-ig-red hover:bg-neutral-800"
-                    >
-                      Remove repost
-                    </button>
-                  )}
-                  {canDelete && (
-                    <button
-                      onClick={deletePost}
-                      className="block w-full px-4 py-2.5 text-left font-semibold text-ig-red hover:bg-neutral-800"
-                    >
-                      Delete post
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setMenuOpen(false)}
-                    className="block w-full px-4 py-2.5 text-left hover:bg-neutral-800"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {isRepost && (
+                <DropdownMenuItem onSelect={removeRepost} className="font-semibold text-ig-red">
+                  <RepostIcon size={18} /> Remove repost
+                </DropdownMenuItem>
+              )}
+              {isRepost && canDelete && <DropdownMenuSeparator />}
+              {canDelete && (
+                <DropdownMenuItem onSelect={deletePost} className="font-semibold text-ig-red">
+                  <TrashIcon size={18} /> Delete post
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </header>
 

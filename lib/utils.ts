@@ -1,3 +1,11 @@
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+/** Merge Tailwind class names (shadcn convention). */
+export function cn(...inputs: ClassValue[]): string {
+  return twMerge(clsx(inputs));
+}
+
 /** "2h", "5d", "3w" style relative time, like Instagram. */
 export function timeAgo(dateStr?: string | null): string {
   if (!dateStr) return "";
