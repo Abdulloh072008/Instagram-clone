@@ -35,10 +35,12 @@ export default function Sidebar() {
 
   // Poll the unread notification count (no-op if the backend endpoint isn't live).
   useEffect(() => {
+    const uid = user?.id;
+    if (!uid) return;
     let alive = true;
     const load = () =>
       notifApi
-        .unreadCount()
+        .unreadCount(uid)
         .then((res) => alive && setUnread(Number(res.data) || 0))
         .catch(() => {});
     load();
@@ -47,7 +49,7 @@ export default function Sidebar() {
       alive = false;
       clearInterval(t);
     };
-  }, []);
+  }, [user?.id]);
 
   // Opening the notifications panel clears the badge.
   useEffect(() => {

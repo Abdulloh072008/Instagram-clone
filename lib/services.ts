@@ -147,17 +147,20 @@ export const follows = {
     api.del("/FollowingRelationShip/delete-following-relation-ship", { followingUserId }),
 };
 
-// ---------- Notifications (BACKEND-SPEC.md §1 — pending on backend) ----------
+// ---------- Notifications (extra backend, no JWT: userId is explicit) ----------
 export const notifications = {
-  list: (pageNumber = 1, pageSize = 20) =>
-    api.get<Paged<AppNotification>>("/Notification/get-notifications", {
+  list: (userId: string, pageNumber = 1, pageSize = 20) =>
+    extraApi.get<Paged<AppNotification>>("/Notification/get-notifications", {
+      userId,
       PageNumber: pageNumber,
       PageSize: pageSize,
     }),
-  unreadCount: () => api.get<Envelope<number>>("/Notification/get-unread-count"),
+  unreadCount: (userId: string) =>
+    extraApi.get<Envelope<number>>("/Notification/get-unread-count", { userId }),
   markRead: (notificationId: number) =>
-    api.postJson("/Notification/mark-read", undefined, { notificationId }),
-  markAllRead: () => api.postJson("/Notification/mark-all-read"),
+    extraApi.postJson("/Notification/mark-read", undefined, { notificationId }),
+  markAllRead: (userId: string) =>
+    extraApi.postJson("/Notification/mark-all-read", undefined, { userId }),
 };
 
 // ---------- Chat / DM ----------

@@ -6,6 +6,7 @@ import Avatar from "@/components/Avatar";
 import Img from "@/components/Img";
 import FollowButton from "@/components/FollowButton";
 import { notifications as notifApi } from "@/lib/services";
+import { useAuth } from "@/lib/auth";
 import { timeAgo } from "@/lib/utils";
 import type { AppNotification } from "@/lib/types";
 import { BellIcon } from "@/components/Icons";
@@ -35,20 +36,23 @@ function bucketOf(dateStr: string): Bucket {
 }
 
 export default function NotificationsPage() {
+  const { user } = useAuth();
   const [items, setItems] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
   const [ready, setReady] = useState(true); // false when backend endpoint not live yet
 
   useEffect(() => {
+    const uid = user?.id;
+    if (!uid) return;
     let alive = true;
     notifApi
-      .list(1, 40)
+      .list(uid, 1, 40)
       .then((res) => {
         if (!alive) return;
         setItems(res.data ?? []);
         setReady(true);
         // Clear the unread badge once the user opens this page.
-        notifApi.markAllRead().catch(() => {});
+        notifApi.markAllRead(uid).catch(() => {});
       })
       .catch(() => {
         // Backend endpoint not implemented yet -> show a graceful empty state.
@@ -58,7 +62,7 @@ export default function NotificationsPage() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [user?.id]);
 
   const groups = useMemo(() => {
     const order: Bucket[] = ["Today", "This Week", "Earlier"];

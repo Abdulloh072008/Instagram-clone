@@ -1,11 +1,15 @@
 // Central config for the Instagram clone frontend.
 // Backend: https://instagram-api.softclub.tj/swagger/index.html
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+// Overridable via env, with safe defaults so the app works without a .env file.
+export const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ?? "https://instagram-api.softclub.tj";
 export const IMAGE_BASE = `${API_BASE}/images`;
 
-// Second backend for extra features (reposts): https://instagramextraapi.onrender.com/swagger
-export const EXTRA_API_BASE = process.env.NEXT_PUBLIC_EXTRA_API_URL;
+// Companion backend (C#) for features missing in the main API — no JWT,
+// controllers take userId explicitly. Hosts Notification/Call/Reaction/Repost/Location.
+export const EXTRA_API_BASE =
+  process.env.NEXT_PUBLIC_EXTRA_API_URL?.replace(/\/$/, "") ?? "https://instagramextraapi.onrender.com";
 
 /** Build a full URL for an image filename returned by the API. */
 export function imageUrl(name?: string | null): string {
