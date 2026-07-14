@@ -25,8 +25,14 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { user } = useAuth();
   const [panel, setPanel] = useState<Panel>(null);
+  const [rendered, setRendered] = useState<Panel>(null);
   const [unread, setUnread] = useState(0);
   const [collapsedManual, setCollapsedManual] = useState(false);
+
+  // Keep the panel content mounted while it slides out, so closing animates too.
+  useEffect(() => {
+    if (panel) setRendered(panel);
+  }, [panel]);
 
   // Collapsed when the user toggles it, or while a slide-out panel is open.
   const collapsed = collapsedManual || panel !== null;
@@ -110,7 +116,7 @@ export default function Sidebar() {
   return (
     <>
       <aside
-        className={`sticky top-0 z-50 hidden h-screen w-[72px] shrink-0 flex-col border-r border-line bg-black px-3 py-6 md:flex ${
+        className={`sticky top-0 z-50 hidden h-screen w-[72px] shrink-0 flex-col border-r border-line bg-black px-3 py-6 transition-[width] duration-300 ease-out md:flex ${
           collapsed ? "" : "xl:w-64"
         }`}
       >
@@ -139,16 +145,20 @@ export default function Sidebar() {
         </nav>
 
         {/* Slide-out panel — absolute so it tracks the (centered) sidebar
-            instead of the viewport edge, at any screen width. */}
-        {panel && (
-          <div className="animate-fade absolute left-full top-0 z-40 hidden h-screen w-[397px] max-w-[calc(100vw-72px)] overflow-hidden rounded-r-2xl border-r border-line bg-black shadow-2xl md:block">
-            {panel === "search" ? (
-              <SearchPanel onNavigate={closePanel} />
-            ) : (
-              <NotificationsPanel onNavigate={closePanel} />
-            )}
-          </div>
-        )}
+            instead of the viewport edge, at any screen width. Stays mounted so
+            open and close both animate; content clears once it's fully closed. */}
+        <div
+          onTransitionEnd={() => !panel && setRendered(null)}
+          className={`absolute left-full top-0 z-40 hidden h-screen w-[397px] max-w-[calc(100vw-72px)] overflow-hidden rounded-r-2xl border-r border-line bg-black shadow-2xl transition-all duration-300 ease-out md:block ${
+            panel ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-4 opacity-0"
+          }`}
+        >
+          {rendered === "search" ? (
+            <SearchPanel onNavigate={closePanel} />
+          ) : rendered === "notifications" ? (
+            <NotificationsPanel onNavigate={closePanel} />
+          ) : null}
+        </div>
       </aside>
 
       {/* click-away backdrop (desktop only) */}
