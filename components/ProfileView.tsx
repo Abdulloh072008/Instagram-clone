@@ -7,9 +7,10 @@ import Avatar from "./Avatar";
 import PostGrid from "./PostGrid";
 import FollowButton from "./FollowButton";
 import { chats, reposts as repostsApi, posts as postsApi } from "@/lib/services";
+import { useAuth } from "@/lib/auth";
 import { formatCount } from "@/lib/utils";
 import type { Post, UserProfile } from "@/lib/types";
-import { GridIcon, ReelsIcon, RepostIcon, TaggedIcon, SettingsIcon } from "./Icons";
+import { GridIcon, ReelsIcon, RepostIcon, TaggedIcon, MoreIcon } from "./Icons";
 
 export default function ProfileView({
   userId,
@@ -25,9 +26,11 @@ export default function ProfileView({
   isFollowing?: boolean;
 }) {
   const router = useRouter();
+  const { logout } = useAuth();
   const [tab, setTab] = useState<"posts" | "reels" | "reposts" | "tagged">("posts");
   const [reposts, setReposts] = useState<Post[] | null>(null);
   const [followers, setFollowers] = useState(profile.subscribersCount);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     if (tab !== "reposts" || reposts !== null) return;
@@ -71,8 +74,12 @@ export default function ProfileView({
                 >
                   Edit profile
                 </Link>
-                <button className="rounded-lg bg-neutral-800 p-1.5 hover:bg-neutral-700">
-                  <SettingsIcon size={18} />
+                <button
+                  onClick={() => setMenuOpen(true)}
+                  aria-label="Options"
+                  className="rounded-lg p-1.5 hover:bg-neutral-800"
+                >
+                  <MoreIcon size={24} />
                 </button>
               </>
             ) : (
@@ -152,6 +159,41 @@ export default function ProfileView({
           <p className="py-16 text-center text-neutral-500">Nothing here yet</p>
         )}
       </div>
+
+      {/* Instagram-style options dialog (own profile) */}
+      {menuOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4"
+          onClick={() => setMenuOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm overflow-hidden rounded-2xl bg-neutral-800 text-center text-sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => {
+                setMenuOpen(false);
+                router.push("/profile/edit");
+              }}
+              className="w-full border-b border-neutral-700 py-3.5 hover:bg-neutral-700/50"
+            >
+              Settings
+            </button>
+            <button
+              onClick={logout}
+              className="w-full border-b border-neutral-700 py-3.5 font-bold text-ig-red hover:bg-neutral-700/50"
+            >
+              Log out
+            </button>
+            <button
+              onClick={() => setMenuOpen(false)}
+              className="w-full py-3.5 hover:bg-neutral-700/50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

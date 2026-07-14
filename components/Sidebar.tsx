@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
 import { notifications as notifApi } from "@/lib/services";
@@ -15,8 +15,6 @@ import {
   MessageIcon,
   ProfileIcon,
   PlusSquare,
-  MenuIcon,
-  SettingsIcon,
   BellIcon,
 } from "./Icons";
 import Avatar from "./Avatar";
@@ -25,9 +23,7 @@ type Panel = "search" | "notifications" | null;
 
 export default function Sidebar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { user, logout } = useAuth();
-  const [menuOpen, setMenuOpen] = useState(false);
+  const { user } = useAuth();
   const [panel, setPanel] = useState<Panel>(null);
   const [unread, setUnread] = useState(0);
 
@@ -151,38 +147,11 @@ export default function Sidebar() {
           <NavLink href="/create" label="Create" Icon={PlusSquare} ActiveIcon={PlusSquare} />
         </nav>
 
-        <div className="relative mt-auto">
-          {menuOpen && (
-            <div className="animate-fade absolute bottom-14 left-0 w-56 overflow-hidden rounded-xl border border-line bg-elevated py-2 shadow-xl">
-              <button
-                onClick={() => {
-                  setMenuOpen(false);
-                  closePanel();
-                  router.push("/profile/edit");
-                }}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm hover:bg-neutral-800"
-              >
-                <SettingsIcon size={18} /> Settings
-              </button>
-              <button
-                onClick={logout}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left text-sm text-ig-red hover:bg-neutral-800"
-              >
-                Log out
-              </button>
-            </div>
-          )}
-          <button
-            onClick={() => setMenuOpen((o) => !o)}
-            className="flex w-full items-center gap-4 rounded-lg px-3 py-3 transition hover:bg-neutral-900"
-          >
-            <MenuIcon size={26} />
-            <span className={labelCls}>More</span>
-          </button>
+        <div className="mt-auto">
           <Link
             href="/profile"
             onClick={closePanel}
-            className="mt-1 flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-neutral-900"
+            className="flex items-center gap-3 rounded-lg px-3 py-3 hover:bg-neutral-900"
           >
             <Avatar name={user?.userName} size={26} />
             <span className={`truncate text-sm ${labelCls}`}>{user?.userName}</span>
