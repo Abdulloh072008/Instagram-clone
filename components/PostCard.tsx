@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import Link from "next/link";
 import Avatar from "./Avatar";
@@ -49,6 +49,19 @@ export default function PostCard({
   } = useForm<{ draft: string }>({ defaultValues: { draft: "" } });
 
   const images = post.images?.length ? post.images : [];
+
+  // Reflect whether the current user already reposted this post (green vs white).
+  useEffect(() => {
+    if (!user) return;
+    let alive = true;
+    repostsApi
+      .state(post.postId, user.id)
+      .then((res) => alive && setReposted(Boolean(res.data?.mine)))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [post.postId, user?.id]);
 
   async function toggleLike() {
     const next = !liked;
