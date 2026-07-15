@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Avatar from "./Avatar";
 import { timeAgo } from "@/lib/utils";
-import { posts as postsApi } from "@/lib/services";
+import { posts as postsApi, profiles } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import type { PostComment } from "@/lib/types";
 import { CloseIcon } from "./Icons";
@@ -39,6 +39,35 @@ export default function CommentsPanel({
       alive = false;
     };
   }, [postId, initial.length]);
+
+  // get-post-by-id returns comments without name/photo — fill them from each commenter's profile.
+  // ponytail: one profile fetch per unique commenter; batch endpoint if threads get large.
+  useEffect(() => {
+    const ids = [...new Set(comments.filter((c) => !c.userName).map((c) => c.userId))];
+    if (!ids.length) return;
+    let alive = true;
+    Promise.all(
+      ids.map((id) =>
+        profiles
+          .byId(id)
+          .then((r) => [id, r.data] as const)
+          .catch(() => null),
+      ),
+    ).then((pairs) => {
+      if (!alive) return;
+      const map = new Map(pairs.filter((p): p is NonNullable<typeof p> => !!p));
+      if (!map.size) return; // nothing resolved — don't churn the array and re-trigger
+      setComments((cs) =>
+        cs.map((c) => {
+          const p = map.get(c.userId);
+          return p ? { ...c, userName: p.userName, userImage: p.image } : c;
+        }),
+      );
+    });
+    return () => {
+      alive = false;
+    };
+  }, [comments]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
