@@ -24,21 +24,29 @@ export default function CommentsPanel({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
 
-  // Feed/reels/other-profile posts embed populated comments (with avatars) — use them as-is.
-  // get-my-posts / reposts (get-post-by-id) don't, so pull the comments when none were passed.
+  // Always refetch on mount so comments added in a previous open (persisted server-side but
+  // not reflected in the parent's stale `initial`) show up again. Merge to keep any name/photo
+  // the feed already embedded — get-post-by-id returns comments without them.
   useEffect(() => {
-    if (initial.length) return;
     let alive = true;
     postsApi
       .byId(postId)
       .then((res) => {
-        if (alive && res.data?.comments?.length) setComments(res.data.comments);
+        const fetched = res.data?.comments;
+        if (!alive || !fetched?.length) return;
+        setComments((prev) => {
+          const known = new Map(prev.map((c) => [c.postCommentId, c]));
+          return fetched.map((c) => {
+            const had = known.get(c.postCommentId);
+            return had ? { ...c, userName: c.userName ?? had.userName, userImage: c.userImage ?? had.userImage } : c;
+          });
+        });
       })
       .catch(() => {});
     return () => {
       alive = false;
     };
-  }, [postId, initial.length]);
+  }, [postId]);
 
   // get-post-by-id returns comments without name/photo — fill them from each commenter's profile.
   // ponytail: one profile fetch per unique commenter; batch endpoint if threads get large.
@@ -109,7 +117,7 @@ export default function CommentsPanel({
           <p className="py-10 text-center text-sm text-neutral-500">No comments yet</p>
         ) : (
           [...comments]
-            .sort((a, b) => +new Date(a.dateCommented) - +new Date(b.dateCommented))
+            .sort((a, b) => +new Date(b.dateCommented) - +new Date(a.dateCommented))
             .map((c) => (
             <div key={c.postCommentId} className="flex gap-3 py-2.5">
               <Link href={`/u/${c.userId}`} className="shrink-0">
