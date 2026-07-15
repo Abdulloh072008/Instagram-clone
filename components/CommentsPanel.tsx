@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Avatar from "./Avatar";
 import { timeAgo } from "@/lib/utils";
-import { posts as postsApi } from "@/lib/services";
+import { posts as postsApi, profiles } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import type { PostComment } from "@/lib/types";
 import { CloseIcon } from "./Icons";
@@ -24,20 +24,58 @@ export default function CommentsPanel({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
 
-  // add-comment doesn't echo the comment, and embedded feed/reels comments omit avatars —
-  // so pull the real list (with account photos) from get-post-by-id.
+  // Always refetch on mount so comments added in a previous open (persisted server-side but
+  // not reflected in the parent's stale `initial`) show up again. Merge to keep any name/photo
+  // the feed already embedded — get-post-by-id returns comments without them.
   useEffect(() => {
     let alive = true;
     postsApi
       .byId(postId)
       .then((res) => {
-        if (alive && res.data?.comments) setComments(res.data.comments);
+        const fetched = res.data?.comments;
+        if (!alive || !fetched?.length) return;
+        setComments((prev) => {
+          const known = new Map(prev.map((c) => [c.postCommentId, c]));
+          return fetched.map((c) => {
+            const had = known.get(c.postCommentId);
+            return had ? { ...c, userName: c.userName ?? had.userName, userImage: c.userImage ?? had.userImage } : c;
+          });
+        });
       })
       .catch(() => {});
     return () => {
       alive = false;
     };
   }, [postId]);
+
+  // get-post-by-id returns comments without name/photo — fill them from each commenter's profile.
+  // ponytail: one profile fetch per unique commenter; batch endpoint if threads get large.
+  useEffect(() => {
+    const ids = [...new Set(comments.filter((c) => !c.userName).map((c) => c.userId))];
+    if (!ids.length) return;
+    let alive = true;
+    Promise.all(
+      ids.map((id) =>
+        profiles
+          .byId(id)
+          .then((r) => [id, r.data] as const)
+          .catch(() => null),
+      ),
+    ).then((pairs) => {
+      if (!alive) return;
+      const map = new Map(pairs.filter((p): p is NonNullable<typeof p> => !!p));
+      if (!map.size) return; // nothing resolved — don't churn the array and re-trigger
+      setComments((cs) =>
+        cs.map((c) => {
+          const p = map.get(c.userId);
+          return p ? { ...c, userName: p.userName, userImage: p.image } : c;
+        }),
+      );
+    });
+    return () => {
+      alive = false;
+    };
+  }, [comments]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,7 +86,7 @@ export default function CommentsPanel({
       postCommentId: Date.now(),
       userId: user?.id ?? "me",
       userName: user?.userName ?? "You",
-      userImage: null,
+      userImage: user?.image ?? null,
       dateCommented: new Date().toISOString(),
       comment: text,
     };
@@ -56,9 +94,6 @@ export default function CommentsPanel({
     setDraft("");
     try {
       await postsApi.addComment(postId, text);
-      // reconcile: server list carries the real account photo for the new comment.
-      const res = await postsApi.byId(postId);
-      if (res.data?.comments) setComments(res.data.comments);
     } catch {
       setComments((c) => c.filter((x) => x.postCommentId !== temp.postCommentId));
     } finally {
@@ -81,7 +116,9 @@ export default function CommentsPanel({
         {comments.length === 0 ? (
           <p className="py-10 text-center text-sm text-neutral-500">No comments yet</p>
         ) : (
-          comments.map((c) => (
+          [...comments]
+            .sort((a, b) => +new Date(b.dateCommented) - +new Date(a.dateCommented))
+            .map((c) => (
             <div key={c.postCommentId} className="flex gap-3 py-2.5">
               <Link href={`/u/${c.userId}`} className="shrink-0">
                 <Avatar src={c.userImage} name={c.userName} size={36} />

@@ -7,13 +7,13 @@ import { useAuth } from "@/lib/auth";
 import { notifications as notifApi } from "@/lib/services";
 import SearchPanel from "./SearchPanel";
 import NotificationsPanel from "./NotificationsPanel";
+import Avatar from "./Avatar";
 import {
   HomeIcon,
   HomeFilled,
   SearchIcon,
   ReelsIcon,
   MessageIcon,
-  ProfileIcon,
   PlusSquare,
   BellIcon,
   MenuIcon,
@@ -37,18 +37,27 @@ export default function Sidebar() {
   // Collapsed when the user toggles it, or while a slide-out panel is open.
   const collapsed = collapsedManual || panel !== null;
 
-  // Poll the unread notification count (no-op if the backend endpoint isn't live).
+  // Poll the unread notification count. The extra API (onrender free tier) can be asleep or
+  // unreachable (ERR_CONNECTION_CLOSED) — back off after a few failures so it doesn't spam.
   useEffect(() => {
     const uid = user?.id;
     if (!uid) return;
     let alive = true;
+    let fails = 0;
+    let t: ReturnType<typeof setInterval>;
     const load = () =>
       notifApi
         .unreadCount(uid)
-        .then((res) => alive && setUnread(Number(res.data) || 0))
-        .catch(() => {});
+        .then((res) => {
+          if (!alive) return;
+          fails = 0;
+          setUnread(Number(res.data) || 0);
+        })
+        .catch(() => {
+          if (++fails >= 3) clearInterval(t);
+        });
     load();
-    const t = setInterval(load, 30_000);
+    t = setInterval(load, 30_000);
     return () => {
       alive = false;
       clearInterval(t);
@@ -140,9 +149,20 @@ export default function Sidebar() {
           {navLink("/reels", "Reels", ReelsIcon, ReelsIcon)}
           {navLink("/messages", "Messages", MessageIcon, MessageIcon)}
           {navButton("notifications", "Notifications", BellIcon, unread)}
-          {navLink("/profile", "Profile", ProfileIcon, ProfileIcon)}
           {navLink("/create", "Create", PlusSquare, PlusSquare)}
         </nav>
+
+        {/* Profile pinned to the bottom, showing the user's avatar. */}
+        <Link
+          href="/profile"
+          onClick={closePanel}
+          className={`mt-2 flex items-center gap-4 rounded-lg px-3 py-3 transition hover:bg-neutral-900 ${
+            isActive("/profile") && !collapsed ? "font-semibold" : "font-normal"
+          }`}
+        >
+          <Avatar src={user?.image} name={user?.userName} size={26} />
+          <span className={labelCls}>Profile</span>
+        </Link>
 
         {/* Slide-out panel — absolute so it tracks the (centered) sidebar
             instead of the viewport edge, at any screen width. Stays mounted so

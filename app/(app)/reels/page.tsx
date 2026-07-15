@@ -106,14 +106,14 @@ function Reel({ post }: { post: Post }) {
           )}
         </div>
 
-        {/* comments drawer */}
+        {/* comments panel — right side, away from the video */}
         {showComments && (
           <div
             className="fixed inset-0 z-50 flex justify-end bg-black/50"
             onClick={() => setShowComments(false)}
           >
             <div
-              className="h-full w-full bg-black sm:w-[400px]"
+              className="animate-slide-right h-full w-full bg-neutral-950 sm:w-[400px]"
               onClick={(e) => e.stopPropagation()}
             >
               <CommentsPanel

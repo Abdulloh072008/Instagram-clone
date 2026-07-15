@@ -122,7 +122,9 @@ export default function PostModal({
               </DropdownMenu>
             )}
           </div>
-          <CommentsPanel postId={post.postId} initial={post.comments ?? []} />
+          <div className="min-h-0 flex-1">
+            <CommentsPanel postId={post.postId} initial={post.comments ?? []} />
+          </div>
         </div>
       </div>
     </div>

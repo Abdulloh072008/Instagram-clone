@@ -76,3 +76,15 @@ body {
 .animate-fade {
   animation: ig-fade 0.25s ease-out both;
 }
+
+@keyframes ig-slide-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+.animate-slide-right {
+  animation: ig-slide-right 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}

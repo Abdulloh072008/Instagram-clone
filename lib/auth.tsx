@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { api, getToken, setToken, clearToken } from "./client";
+import { profiles } from "./services";
 import type { AuthUser, Envelope } from "./types";
 
 function decodeToken(token: string): AuthUser | null {
@@ -28,6 +29,7 @@ interface AuthContextValue {
   login: (userName: string, password: string) => Promise<void>;
   register: (input: RegisterInput) => Promise<string>;
   logout: () => void;
+  setUserImage: (image: string | null) => void;
 }
 
 export interface RegisterInput {
@@ -45,18 +47,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  useEffect(() => {
-    const token = getToken();
-    if (token) setUser(decodeToken(token));
-    setLoading(false);
+  // Fetch the profile photo (not in the JWT) and merge it onto the user.
+  const loadImage = useCallback(() => {
+    profiles
+      .me()
+      .then((p) => setUser((cur) => (cur ? { ...cur, image: p.data.image } : cur)))
+      .catch(() => {});
   }, []);
 
-  const login = useCallback(async (userName: string, password: string) => {
-    const res = await api.postJson<Envelope<string>>("/Account/login", { userName, password });
-    const token = res.data;
-    if (!token || typeof token !== "string") throw new Error("Логин ноком шуд");
-    setToken(token);
-    setUser(decodeToken(token));
+  useEffect(() => {
+    const token = getToken();
+    if (token) {
+      setUser(decodeToken(token));
+      loadImage();
+    }
+    setLoading(false);
+  }, [loadImage]);
+
+  const login = useCallback(
+    async (userName: string, password: string) => {
+      const res = await api.postJson<Envelope<string>>("/Account/login", { userName, password });
+      const token = res.data;
+      if (!token || typeof token !== "string") throw new Error("Логин ноком шуд");
+      setToken(token);
+      setUser(decodeToken(token));
+      loadImage();
+    },
+    [loadImage],
+  );
+
+  const setUserImage = useCallback((image: string | null) => {
+    setUser((u) => (u ? { ...u, image } : u));
   }, []);
 
   const register = useCallback(async (input: RegisterInput) => {
@@ -71,7 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [router]);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, logout, setUserImage }}>
       {children}
     </AuthContext.Provider>
   );
