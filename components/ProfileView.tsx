@@ -16,7 +16,6 @@ import {
   RepostIcon,
   TaggedIcon,
   MoreIcon,
-  SettingsIcon,
   BellIcon,
   BookmarkIcon,
   LogoutIcon,
@@ -85,9 +84,6 @@ export default function ProfileView({
             <MoreIcon size={26} />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onSelect={() => router.push("/profile/edit")}>
-              <SettingsIcon size={18} /> Settings
-            </DropdownMenuItem>
             <DropdownMenuItem onSelect={() => router.push("/notifications")}>
               <BellIcon size={18} /> Your activity
             </DropdownMenuItem>
