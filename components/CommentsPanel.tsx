@@ -80,7 +80,7 @@ export default function CommentsPanel({
           <p className="py-10 text-center text-sm text-neutral-500">No comments yet</p>
         ) : (
           [...comments]
-            .sort((a, b) => +new Date(b.dateCommented) - +new Date(a.dateCommented))
+            .sort((a, b) => +new Date(a.dateCommented) - +new Date(b.dateCommented))
             .map((c) => (
             <div key={c.postCommentId} className="flex gap-3 py-2.5">
               <Link href={`/u/${c.userId}`} className="shrink-0">
