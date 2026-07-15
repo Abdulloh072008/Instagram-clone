@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Avatar from "./Avatar";
 import { timeAgo } from "@/lib/utils";
@@ -23,6 +23,22 @@ export default function CommentsPanel({
   const [comments, setComments] = useState<PostComment[]>(initial);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+
+  // Feed/reels/other-profile posts embed populated comments (with avatars) — use them as-is.
+  // get-my-posts / reposts (get-post-by-id) don't, so pull the comments when none were passed.
+  useEffect(() => {
+    if (initial.length) return;
+    let alive = true;
+    postsApi
+      .byId(postId)
+      .then((res) => {
+        if (alive && res.data?.comments?.length) setComments(res.data.comments);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [postId, initial.length]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
