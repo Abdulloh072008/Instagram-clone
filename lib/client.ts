@@ -78,11 +78,14 @@ export const api = {
   del: <T = unknown>(path: string, query?: Query) =>
     http.delete<T>(path, { params: clean(query) }).then((r) => r.data),
 
+  // Uploads (photos, and especially videos) can take far longer than the 30s
+  // default — a longer clip would otherwise abort mid-upload. No timeout here so
+  // post length isn't capped by the request timeout.
   postForm: <T = unknown>(path: string, form: FormData, query?: Query) =>
-    http.post<T>(path, form, { params: clean(query) }).then((r) => r.data),
+    http.post<T>(path, form, { params: clean(query), timeout: 0 }).then((r) => r.data),
 
   putForm: <T = unknown>(path: string, form: FormData, query?: Query) =>
-    http.put<T>(path, form, { params: clean(query) }).then((r) => r.data),
+    http.put<T>(path, form, { params: clean(query), timeout: 0 }).then((r) => r.data),
 };
 
 // --- Second backend (extra API: reposts). Same interceptors, different base URL. ---

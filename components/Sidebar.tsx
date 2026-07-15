@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { notifications as notifApi } from "@/lib/services";
 import SearchPanel from "./SearchPanel";
 import NotificationsPanel from "./NotificationsPanel";
 import Avatar from "./Avatar";
@@ -26,7 +25,6 @@ export default function Sidebar() {
   const { user } = useAuth();
   const [panel, setPanel] = useState<Panel>(null);
   const [rendered, setRendered] = useState<Panel>(null);
-  const [unread, setUnread] = useState(0);
   const [collapsedManual, setCollapsedManual] = useState(false);
 
   // Keep the panel content mounted while it slides out, so closing animates too.
@@ -36,38 +34,6 @@ export default function Sidebar() {
 
   // Collapsed when the user toggles it, or while a slide-out panel is open.
   const collapsed = collapsedManual || panel !== null;
-
-  // Poll the unread notification count. The extra API (onrender free tier) can be asleep or
-  // unreachable (ERR_CONNECTION_CLOSED) — back off after a few failures so it doesn't spam.
-  useEffect(() => {
-    const uid = user?.id;
-    if (!uid) return;
-    let alive = true;
-    let fails = 0;
-    let t: ReturnType<typeof setInterval>;
-    const load = () =>
-      notifApi
-        .unreadCount(uid)
-        .then((res) => {
-          if (!alive) return;
-          fails = 0;
-          setUnread(Number(res.data) || 0);
-        })
-        .catch(() => {
-          if (++fails >= 3) clearInterval(t);
-        });
-    load();
-    t = setInterval(load, 30_000);
-    return () => {
-      alive = false;
-      clearInterval(t);
-    };
-  }, [user?.id]);
-
-  // Opening the notifications panel clears the badge.
-  useEffect(() => {
-    if (panel === "notifications") setUnread(0);
-  }, [panel]);
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -85,7 +51,9 @@ export default function Sidebar() {
     Icon: typeof HomeIcon,
     ActiveIcon: typeof HomeIcon,
   ) => {
-    const active = isActive(href) && !collapsed;
+    // Icon state follows the route only — not the collapsed state — so toggling
+    // the menu never swaps filled/outline (which looks like the icon resizing).
+    const active = isActive(href);
     const I = active ? ActiveIcon : Icon;
     return (
       <Link
@@ -148,7 +116,7 @@ export default function Sidebar() {
           {navButton("search", "Search", SearchIcon)}
           {navLink("/reels", "Reels", ReelsIcon, ReelsIcon)}
           {navLink("/messages", "Messages", MessageIcon, MessageIcon)}
-          {navButton("notifications", "Notifications", BellIcon, unread)}
+          {navButton("notifications", "Notifications", BellIcon)}
           {navLink("/create", "Create", PlusSquare, PlusSquare)}
         </nav>
 
