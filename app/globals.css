@@ -77,14 +77,14 @@ body {
   animation: ig-fade 0.25s ease-out both;
 }
 
-@keyframes ig-sheet {
+@keyframes ig-slide-right {
   from {
-    transform: translateY(100%);
+    transform: translateX(100%);
   }
   to {
-    transform: translateY(0);
+    transform: translateX(0);
   }
 }
-.animate-sheet {
-  animation: ig-sheet 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+.animate-slide-right {
+  animation: ig-slide-right 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
 }

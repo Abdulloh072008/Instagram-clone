@@ -106,14 +106,14 @@ function Reel({ post }: { post: Post }) {
           )}
         </div>
 
-        {/* comments bottom sheet */}
+        {/* comments panel — right side, away from the video */}
         {showComments && (
           <div
-            className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
+            className="fixed inset-0 z-50 flex justify-end bg-black/50"
             onClick={() => setShowComments(false)}
           >
             <div
-              className="animate-sheet h-[68vh] w-full max-w-[500px] overflow-hidden rounded-t-2xl bg-neutral-950"
+              className="animate-slide-right h-full w-full bg-neutral-950 sm:w-[400px]"
               onClick={(e) => e.stopPropagation()}
             >
               <CommentsPanel
