@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Avatar from "./Avatar";
 import { timeAgo } from "@/lib/utils";
@@ -24,21 +24,6 @@ export default function CommentsPanel({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
 
-  // add-comment doesn't echo the comment, and embedded feed/reels comments omit avatars —
-  // so pull the real list (with account photos) from get-post-by-id.
-  useEffect(() => {
-    let alive = true;
-    postsApi
-      .byId(postId)
-      .then((res) => {
-        if (alive && res.data?.comments) setComments(res.data.comments);
-      })
-      .catch(() => {});
-    return () => {
-      alive = false;
-    };
-  }, [postId]);
-
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const text = draft.trim();
@@ -56,9 +41,6 @@ export default function CommentsPanel({
     setDraft("");
     try {
       await postsApi.addComment(postId, text);
-      // reconcile: server list carries the real account photo for the new comment.
-      const res = await postsApi.byId(postId);
-      if (res.data?.comments) setComments(res.data.comments);
     } catch {
       setComments((c) => c.filter((x) => x.postCommentId !== temp.postCommentId));
     } finally {

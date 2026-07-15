@@ -106,14 +106,14 @@ function Reel({ post }: { post: Post }) {
           )}
         </div>
 
-        {/* comments drawer */}
+        {/* comments bottom sheet */}
         {showComments && (
           <div
-            className="fixed inset-0 z-50 flex justify-end bg-black/50"
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/50"
             onClick={() => setShowComments(false)}
           >
             <div
-              className="h-full w-full bg-black sm:w-[400px]"
+              className="animate-sheet h-[68vh] w-full max-w-[500px] overflow-hidden rounded-t-2xl bg-neutral-950"
               onClick={(e) => e.stopPropagation()}
             >
               <CommentsPanel
