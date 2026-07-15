@@ -7,13 +7,13 @@ import { useAuth } from "@/lib/auth";
 import { notifications as notifApi } from "@/lib/services";
 import SearchPanel from "./SearchPanel";
 import NotificationsPanel from "./NotificationsPanel";
+import Avatar from "./Avatar";
 import {
   HomeIcon,
   HomeFilled,
   SearchIcon,
   ReelsIcon,
   MessageIcon,
-  ProfileIcon,
   PlusSquare,
   BellIcon,
   MenuIcon,
@@ -149,9 +149,20 @@ export default function Sidebar() {
           {navLink("/reels", "Reels", ReelsIcon, ReelsIcon)}
           {navLink("/messages", "Messages", MessageIcon, MessageIcon)}
           {navButton("notifications", "Notifications", BellIcon, unread)}
-          {navLink("/profile", "Profile", ProfileIcon, ProfileIcon)}
           {navLink("/create", "Create", PlusSquare, PlusSquare)}
         </nav>
+
+        {/* Profile pinned to the bottom, showing the user's avatar. */}
+        <Link
+          href="/profile"
+          onClick={closePanel}
+          className={`mt-2 flex items-center gap-4 rounded-lg px-3 py-3 transition hover:bg-neutral-900 ${
+            isActive("/profile") && !collapsed ? "font-semibold" : "font-normal"
+          }`}
+        >
+          <Avatar src={user?.image} name={user?.userName} size={26} />
+          <span className={labelCls}>Profile</span>
+        </Link>
 
         {/* Slide-out panel — absolute so it tracks the (centered) sidebar
             instead of the viewport edge, at any screen width. Stays mounted so
