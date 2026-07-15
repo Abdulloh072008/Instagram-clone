@@ -43,7 +43,7 @@ export default function ProfileView({
   isFollowing?: boolean;
 }) {
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const [tab, setTab] = useState<"posts" | "reels" | "reposts" | "tagged">("posts");
   const [reposts, setReposts] = useState<Post[] | null>(null);
   const [followers, setFollowers] = useState(profile.subscribersCount);
@@ -104,7 +104,12 @@ export default function ProfileView({
 
       {/* header */}
       <header className="flex flex-col items-center gap-6 border-b border-line pb-8 sm:flex-row sm:items-start sm:gap-14 sm:pl-8">
-        <Avatar src={profile.image} name={profile.userName} size={150} className="shrink-0" />
+        <Avatar
+          src={isMe && user?.image !== undefined ? user.image : profile.image}
+          name={profile.userName}
+          size={150}
+          className="shrink-0"
+        />
 
         <div className="flex flex-1 flex-col items-center gap-4 sm:items-start">
           <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">

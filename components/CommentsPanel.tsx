@@ -78,7 +78,7 @@ export default function CommentsPanel({
       postCommentId: Date.now(),
       userId: user?.id ?? "me",
       userName: user?.userName ?? "You",
-      userImage: null,
+      userImage: user?.image ?? null,
       dateCommented: new Date().toISOString(),
       comment: text,
     };

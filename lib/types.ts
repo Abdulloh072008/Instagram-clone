@@ -151,4 +151,5 @@ export interface AuthUser {
   userName: string; // name claim
   email: string;
   role: string;
+  image?: string | null; // profile photo, fetched after auth (not in the JWT)
 }

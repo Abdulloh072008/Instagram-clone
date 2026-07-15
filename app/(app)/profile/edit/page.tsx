@@ -5,10 +5,12 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import { profiles } from "@/lib/services";
+import { useAuth } from "@/lib/auth";
 import type { UserProfile } from "@/lib/types";
 
 export default function EditProfilePage() {
   const router = useRouter();
+  const { setUserImage } = useAuth();
   const fileRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -33,6 +35,10 @@ export default function EditProfilePage() {
     setPreview(URL.createObjectURL(f));
     try {
       await profiles.updateImage(f);
+      // pull the canonical new filename and broadcast it so avatars update without a refresh
+      const p = await profiles.me();
+      setProfile(p.data);
+      setUserImage(p.data.image);
     } catch {
       setMsg("Image upload failed");
     }
