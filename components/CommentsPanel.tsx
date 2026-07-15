@@ -63,7 +63,9 @@ export default function CommentsPanel({
         {comments.length === 0 ? (
           <p className="py-10 text-center text-sm text-neutral-500">No comments yet</p>
         ) : (
-          comments.map((c) => (
+          [...comments]
+            .sort((a, b) => +new Date(b.dateCommented) - +new Date(a.dateCommented))
+            .map((c) => (
             <div key={c.postCommentId} className="flex gap-3 py-2.5">
               <Link href={`/u/${c.userId}`} className="shrink-0">
                 <Avatar src={c.userImage} name={c.userName} size={36} />

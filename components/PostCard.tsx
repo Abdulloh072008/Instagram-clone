@@ -148,7 +148,9 @@ export default function PostCard({
     }
   });
 
-  const visibleComments = comments.slice(0, 2);
+  const visibleComments = [...comments]
+    .sort((a, b) => +new Date(b.dateCommented) - +new Date(a.dateCommented))
+    .slice(0, 2);
 
   if (deleted) return null;
 
