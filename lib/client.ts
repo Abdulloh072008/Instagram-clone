@@ -30,7 +30,8 @@ export function clearToken() {
   document.cookie = `${TOKEN_KEY}=; path=/; max-age=0`;
 }
 
-const http = axios.create({ baseURL: API_BASE });
+// timeout so a hung endpoint (get-reels sometimes never responds) rejects instead of spinning forever.
+const http = axios.create({ baseURL: API_BASE, timeout: 30000 });
 
 // Attach the bearer token to every request.
 http.interceptors.request.use((config) => {
@@ -85,7 +86,7 @@ export const api = {
 };
 
 // --- Second backend (extra API: reposts). Same interceptors, different base URL. ---
-const httpExtra = axios.create({ baseURL: EXTRA_API_BASE });
+const httpExtra = axios.create({ baseURL: EXTRA_API_BASE, timeout: 30000 });
 
 httpExtra.interceptors.request.use((config) => {
   const token = getToken();

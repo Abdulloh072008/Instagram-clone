@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import Img from "@/components/Img";
-import { imageUrl } from "@/lib/config";
+import FeedVideo from "@/components/FeedVideo";
+import CommentsPanel from "@/components/CommentsPanel";
 import { posts as postsApi, reposts as repostsApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import { formatCount } from "@/lib/utils";
@@ -25,6 +26,7 @@ function Reel({ post }: { post: Post }) {
   const [liked, setLiked] = useState(post.postLike);
   const [count, setCount] = useState(post.postLikeCount);
   const [reposted, setReposted] = useState(false);
+  const [showComments, setShowComments] = useState(false);
   const media = post.images?.[0];
   const isVideo = media ? VIDEO_RX.test(media) : false;
 
@@ -55,15 +57,8 @@ function Reel({ post }: { post: Post }) {
 
   return (
     <div className="relative h-[88vh] max-h-[88vh] w-full max-w-[440px] overflow-hidden rounded-none bg-neutral-950 md:rounded-xl">
-        {isVideo ? (
-          <video
-            src={imageUrl(media)}
-            className="h-full w-full object-cover"
-            loop
-            muted
-            playsInline
-            autoPlay
-          />
+        {isVideo && media ? (
+          <FeedVideo src={media} className="h-full w-full object-cover" />
         ) : (
           <Img src={media} alt={post.title ?? ""} className="h-full w-full object-cover" />
         )}
@@ -79,7 +74,10 @@ function Reel({ post }: { post: Post }) {
             {liked ? <HeartFilled size={30} className="text-ig-red" /> : <HeartIcon size={30} />}
             <span className="mt-1 text-xs font-semibold">{formatCount(count)}</span>
           </button>
-          <button className="flex flex-col items-center transition hover:text-neutral-400 active:scale-90">
+          <button
+            onClick={() => setShowComments(true)}
+            className="flex flex-col items-center transition hover:text-neutral-400 active:scale-90"
+          >
             <CommentIcon size={30} />
             <span className="mt-1 text-xs font-semibold">{formatCount(post.commentCount)}</span>
           </button>
@@ -107,6 +105,25 @@ function Reel({ post }: { post: Post }) {
             <p className="mt-2 line-clamp-2 text-sm">{post.content || post.title}</p>
           )}
         </div>
+
+        {/* comments drawer */}
+        {showComments && (
+          <div
+            className="fixed inset-0 z-50 flex justify-end bg-black/50"
+            onClick={() => setShowComments(false)}
+          >
+            <div
+              className="h-full w-full bg-black sm:w-[400px]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <CommentsPanel
+                postId={post.postId}
+                initial={post.comments ?? []}
+                onClose={() => setShowComments(false)}
+              />
+            </div>
+          </div>
+        )}
       </div>
   );
 }
@@ -117,17 +134,17 @@ export default function ReelsPage() {
 
   useEffect(() => {
     let alive = true;
-    // get-reels 500s intermittently; retry a couple times before giving up.
+    // get-reels is slow and sometimes hangs; small page + retry a few times before giving up.
     async function load(attempt = 0) {
       try {
-        const res = await postsApi.reels(1, 20);
+        const res = await postsApi.reels(1, 8);
         const items = (res.data ?? []).filter((p) => p.images.length);
         if (!alive) return;
-        if (items.length === 0 && attempt < 2) return load(attempt + 1);
+        if (items.length === 0 && attempt < 3) return load(attempt + 1);
         setReels(items);
         setLoading(false);
       } catch {
-        if (attempt < 2) return load(attempt + 1);
+        if (attempt < 3) return load(attempt + 1);
         if (alive) setLoading(false);
       }
     }

@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import Link from "next/link";
 import Avatar from "./Avatar";
-import Img from "./Img";
-import FeedVideo from "./FeedVideo";
+import PostCarousel from "./PostCarousel";
+import PostModal from "./PostModal";
 import { posts as postsApi, reposts as repostsApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
-import { timeAgo, formatCount, isVideo } from "@/lib/utils";
+import { timeAgo, formatCount } from "@/lib/utils";
 import type { Post, PostComment } from "@/lib/types";
 import {
   HeartIcon,
@@ -46,8 +46,7 @@ export default function PostCard({
   const [saved, setSaved] = useState(post.postFavorite);
   const [comments, setComments] = useState<PostComment[]>(post.comments ?? []);
   const [commentCount, setCommentCount] = useState(post.commentCount);
-  const [showAllComments, setShowAllComments] = useState(false);
-  const [slide, setSlide] = useState(0);
+  const [showModal, setShowModal] = useState(false);
   const {
     register,
     handleSubmit,
@@ -149,7 +148,7 @@ export default function PostCard({
     }
   });
 
-  const visibleComments = showAllComments ? comments : comments.slice(0, 2);
+  const visibleComments = comments.slice(0, 2);
 
   if (deleted) return null;
 
@@ -195,47 +194,11 @@ export default function PostCard({
       {/* media */}
       <div className="relative aspect-square w-full overflow-hidden bg-neutral-950 md:rounded-none">
         {images.length > 0 ? (
-          isVideo(images[slide]) ? (
-            <FeedVideo src={images[slide]} className="h-full w-full object-cover" />
-          ) : (
-            <Img src={images[slide]} alt={post.title ?? ""} className="h-full w-full object-cover" />
-          )
+          <PostCarousel images={images} alt={post.title ?? ""} />
         ) : (
           <div className="flex h-full items-center justify-center px-6 text-center text-lg text-neutral-300">
             {post.content || post.title || "…"}
           </div>
-        )}
-
-        {images.length > 1 && (
-          <>
-            <div className="absolute right-3 top-3 rounded-full bg-black/60 px-2 py-0.5 text-xs">
-              {slide + 1}/{images.length}
-            </div>
-            {slide > 0 && (
-              <button
-                onClick={() => setSlide((s) => s - 1)}
-                className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 px-2 py-1 text-sm"
-              >
-                ‹
-              </button>
-            )}
-            {slide < images.length - 1 && (
-              <button
-                onClick={() => setSlide((s) => s + 1)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 px-2 py-1 text-sm"
-              >
-                ›
-              </button>
-            )}
-            <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
-              {images.map((_, i) => (
-                <span
-                  key={i}
-                  className={`h-1.5 w-1.5 rounded-full ${i === slide ? "bg-ig-blue" : "bg-white/40"}`}
-                />
-              ))}
-            </div>
-          </>
         )}
       </div>
 
@@ -248,7 +211,7 @@ export default function PostCard({
           {liked ? <HeartFilled size={26} className="text-ig-red" /> : <HeartIcon size={26} />}
         </button>
         <button
-          onClick={() => setShowAllComments(true)}
+          onClick={() => setShowModal(true)}
           className="transition hover:text-neutral-400 active:scale-90"
         >
           <CommentIcon size={26} />
@@ -284,9 +247,9 @@ export default function PostCard({
       )}
 
       {/* comments */}
-      {commentCount > 2 && !showAllComments && (
+      {commentCount > 2 && (
         <button
-          onClick={() => setShowAllComments(true)}
+          onClick={() => setShowModal(true)}
           className="px-3 pt-1 text-sm text-neutral-500"
         >
           View all {formatCount(commentCount)} comments
@@ -321,6 +284,8 @@ export default function PostCard({
           Post
         </button>
       </form>
+
+      {showModal && <PostModal post={{ ...post, comments }} onClose={() => setShowModal(false)} />}
     </article>
   );
 }
