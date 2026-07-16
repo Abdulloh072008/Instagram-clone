@@ -112,14 +112,22 @@ export interface I2Message {
   senderId?: number;
   conversationId?: number;
   text?: string | null;
-  voice?: string | null;
+  voiceUrl?: string | null;
   voiceSecs?: number | null;
   edited?: boolean;
+  editedAt?: string | null;
   deleted?: boolean;
-  isRead?: boolean;
-  reactions?: { emoji: Emoji; userId: number }[];
+  seenAt?: string | null;
+  status?: string;
+  reactions?: Record<string, number[]>; // emoji -> [userId]
   createdAt?: string;
   [k: string]: unknown;
+}
+
+export interface I2ConversationDetail {
+  conversationId: number;
+  user: I2User;
+  messages: I2Message[];
 }
 
 export interface I2Conversation {
@@ -158,9 +166,9 @@ export const insta2 = {
   },
 
   chat: {
-    conversations: () => req<{ conversations?: I2Conversation[] } | I2Conversation[]>("/conversations"),
-    messagesWith: (userId: number) =>
-      req<{ messages?: I2Message[] } | I2Message[]>(`/conversations/with/${userId}/messages`),
+    conversations: () => req<{ conversations: I2Conversation[] }>("/conversations"),
+    // GET returns the conversation with its messages.
+    with: (userId: number) => req<I2ConversationDetail>(`/conversations/with/${userId}`),
     send: (userId: number, text: string) =>
       req<I2Message>(`/conversations/with/${userId}/messages`, { method: "POST", body: { text } }),
     sendVoice: (userId: number, voice: string, voiceSecs: number) =>
