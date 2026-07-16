@@ -8,7 +8,7 @@ import CommentsPanel from "./CommentsPanel";
 import { posts as postsApi, reposts as repostsApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import type { Post } from "@/lib/types";
-import { CloseIcon, MoreIcon, RepostIcon, TrashIcon } from "./Icons";
+import { CloseIcon, MoreIcon, RepostIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon } from "./Icons";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -23,25 +23,33 @@ export default function PostModal({
   onClose,
   isRepost = false,
   onDeleted,
+  onPrev,
+  onNext,
 }: {
   post: Post;
   onClose: () => void;
   isRepost?: boolean;
   onDeleted?: () => void;
+  onPrev?: () => void;
+  onNext?: () => void;
 }) {
   const { user } = useAuth();
   const images = post.images?.length ? post.images : [];
   const canDelete = !!user && post.userId === user.id;
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft") onPrev?.();
+      else if (e.key === "ArrowRight") onNext?.();
+    };
     window.addEventListener("keydown", onKey);
     document.body.style.overflow = "hidden";
     return () => {
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = "";
     };
-  }, [onClose]);
+  }, [onClose, onPrev, onNext]);
 
   async function deletePost() {
     try {
@@ -76,6 +84,25 @@ export default function PostModal({
       >
         <CloseIcon size={28} />
       </button>
+
+      {onPrev && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onPrev(); }}
+          aria-label="Previous"
+          className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 p-1 text-black hover:bg-white md:left-4"
+        >
+          <ChevronLeftIcon size={22} />
+        </button>
+      )}
+      {onNext && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onNext(); }}
+          aria-label="Next"
+          className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/90 p-1 text-black hover:bg-white md:right-4"
+        >
+          <ChevronRightIcon size={22} />
+        </button>
+      )}
 
       <div
         className="flex h-full max-h-screen w-full max-w-5xl flex-col overflow-hidden bg-black md:max-h-[92vh] md:flex-row md:rounded-xl"
