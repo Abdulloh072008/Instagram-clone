@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import PostCard from "@/components/PostCard";
 import StoriesBar from "@/components/StoriesBar";
 import Suggestions from "@/components/Suggestions";
+import Spinner from "@/components/Spinner";
 import { posts as postsApi } from "@/lib/services";
 import type { Post } from "@/lib/types";
 
@@ -69,7 +70,7 @@ export default function HomeFeed() {
 
         {loading && (
           <div className="flex justify-center py-8">
-            <div className="h-7 w-7 animate-spin rounded-full border-2 border-neutral-700 border-t-white" />
+            <Spinner />
           </div>
         )}
         {!loading && page >= totalPage && items.length > 0 && (

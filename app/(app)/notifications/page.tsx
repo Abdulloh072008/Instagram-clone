@@ -5,6 +5,7 @@ import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import Img from "@/components/Img";
 import FollowButton from "@/components/FollowButton";
+import Spinner from "@/components/Spinner";
 import { notifications as notifApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import { timeAgo } from "@/lib/utils";
@@ -77,7 +78,7 @@ export default function NotificationsPage() {
 
       {loading && (
         <div className="flex justify-center py-16">
-          <div className="h-7 w-7 animate-spin rounded-full border-2 border-neutral-700 border-t-white" />
+          <Spinner />
         </div>
       )}
 

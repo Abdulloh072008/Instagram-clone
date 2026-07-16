@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
+import Spinner from "@/components/Spinner";
 import { profiles } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import type { UserProfile } from "@/lib/types";
@@ -58,7 +59,7 @@ export default function EditProfilePage() {
   if (!profile) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
-        <div className="h-7 w-7 animate-spin rounded-full border-2 border-neutral-700 border-t-white" />
+        <Spinner />
       </div>
     );
   }

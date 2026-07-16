@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import Img from "@/components/Img";
+import Spinner from "@/components/Spinner";
 import { chats } from "@/lib/services";
 import { otherUser } from "@/components/ChatList";
 import { useAuth } from "@/lib/auth";
@@ -18,6 +19,7 @@ export default function ConversationPage() {
   const chatId = Number(params.id);
   const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(true);
   const [peer, setPeer] = useState<{ id: string; name: string; image: string | null } | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -36,6 +38,8 @@ export default function ConversationPage() {
       setMessages(res.data ?? []);
     } catch {
       /* ignore */
+    } finally {
+      setLoading(false);
     }
   }, [chatId]);
 
@@ -94,7 +98,12 @@ export default function ConversationPage() {
 
       {/* messages */}
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-4">
-        {messages.length === 0 && (
+        {loading && (
+          <div className="my-auto flex justify-center">
+            <Spinner />
+          </div>
+        )}
+        {!loading && messages.length === 0 && (
           <p className="my-auto text-center text-sm text-neutral-500">
             No messages yet. Say hi 👋
           </p>

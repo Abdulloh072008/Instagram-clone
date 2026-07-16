@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ProfileView from "@/components/ProfileView";
+import Spinner from "@/components/Spinner";
 import { profiles, posts as postsApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import type { Post, UserProfile } from "@/lib/types";
@@ -25,7 +26,7 @@ export default function MyProfilePage() {
   if (loading || !profile || !user) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
-        <div className="h-7 w-7 animate-spin rounded-full border-2 border-neutral-700 border-t-white" />
+        <Spinner />
       </div>
     );
   }

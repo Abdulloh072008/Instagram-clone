@@ -5,6 +5,7 @@ import Link from "next/link";
 import Avatar from "./Avatar";
 import Img from "./Img";
 import FollowButton from "./FollowButton";
+import Spinner from "./Spinner";
 import { notifications as notifApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import { timeAgo } from "@/lib/utils";
@@ -58,7 +59,7 @@ export default function NotificationsPanel({ onNavigate }: { onNavigate: () => v
       <div className="flex-1 overflow-y-auto border-t border-line">
         {loading && (
           <div className="flex justify-center py-12">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-700 border-t-white" />
+            <Spinner className="h-6 w-6" />
           </div>
         )}
 
