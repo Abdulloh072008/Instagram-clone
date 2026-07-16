@@ -96,7 +96,7 @@ export const stories = {
   byUser: (userId: string) => api.get<UserStories>(`/Story/get-user-stories/${userId}`),
   like: (storyId: number) => api.postJson("/Story/LikeStory", undefined, { storyId }),
   view: (storyId: number) => api.postJson("/Story/add-story-view", undefined, { storyId }),
-  add: (postId: number, image: File) => {
+  add: (image: File, postId?: number) => {
     const form = new FormData();
     form.append("Image", image);
     return api.postForm("/Story/AddStories", form, { PostId: postId });

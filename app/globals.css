@@ -41,6 +41,10 @@ body {
 .story-ring {
   background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
 }
+/* Already-watched story: muted grey ring */
+.story-ring-seen {
+  background: #363636;
+}
 
 /* Thin, subtle scrollbars that match the dark UI */
 * {
