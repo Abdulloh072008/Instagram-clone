@@ -145,7 +145,7 @@ export default function Sidebar() {
 
         <nav className="flex flex-1 flex-col gap-1">
           {navLink("/", "Home", HomeIcon, HomeFilled)}
-          {navButton("search", "Search", SearchIcon)}
+          {navLink("/explore", "Search", SearchIcon, SearchIcon)}
           {navLink("/reels", "Reels", ReelsIcon, ReelsIcon)}
           {navLink("/messages", "Messages", MessageIcon, MessageIcon)}
           {navButton("notifications", "Notifications", BellIcon, unread)}
