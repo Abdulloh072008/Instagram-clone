@@ -11,6 +11,12 @@ export const IMAGE_BASE = `${API_BASE}/images`;
 export const EXTRA_API_BASE =
   process.env.NEXT_PUBLIC_EXTRA_API_URL?.replace(/\/$/, "") ?? "https://instagramextraapi.onrender.com";
 
+// Rich social backend (FastAPI, own JWT auth) for chat, notifications,
+// comment/message reactions and recommendations. Base path is /api.
+export const INSTA2_BASE =
+  (process.env.NEXT_PUBLIC_INSTA2_URL?.replace(/\/$/, "") ?? "https://backend-insta-jma5.onrender.com") +
+  "/api";
+
 /** Build a full URL for an image filename returned by the API. */
 export function imageUrl(name?: string | null): string {
   if (!name) return "";

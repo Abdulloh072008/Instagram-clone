@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from "rea
 import { useRouter } from "next/navigation";
 import { api, getToken, setToken, clearToken } from "./client";
 import { profiles } from "./services";
+import { ensureInsta2Session, clearInsta2 } from "./insta2";
 import type { AuthUser, Envelope } from "./types";
 
 function decodeToken(token: string): AuthUser | null {
@@ -70,8 +71,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const token = res.data;
       if (!token || typeof token !== "string") throw new Error("Логин ноком шуд");
       setToken(token);
-      setUser(decodeToken(token));
+      const decoded = decodeToken(token);
+      setUser(decoded);
       loadImage();
+      // Hybrid: mirror the session onto the rich backend (chat/notifications). Best-effort.
+      if (decoded) {
+        ensureInsta2Session(decoded.userName, password, decoded.email, decoded.userName).catch(() => {});
+      }
     },
     [loadImage],
   );
@@ -87,6 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     clearToken();
+    clearInsta2();
     setUser(null);
     router.push("/login");
   }, [router]);
