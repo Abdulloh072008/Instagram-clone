@@ -89,6 +89,7 @@ export interface UserListItem {
 export interface StoryItem {
   storyId?: number;
   id?: number;
+  postId?: number;
   fileName?: string;
   image?: string;
   createAt?: string;

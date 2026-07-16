@@ -101,6 +101,11 @@ export const stories = {
     form.append("Image", image);
     return api.postForm("/Story/AddStories", form, { PostId: postId });
   },
+  remove: (id: number) => api.del("/Story/DeleteStory", { id }),
+  // ponytail: no story-reaction endpoint exists; reuse /Reaction keyed by storyId
+  // via the postId field. Collides only if a post and a story share the same id.
+  react: (userId: string, userName: string, storyId: number, emoji: string) =>
+    extraApi.postJson("/Reaction/add", { userId, userName, postId: storyId, emoji }),
 };
 
 // ---------- Users / search ----------

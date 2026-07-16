@@ -9,6 +9,21 @@ import { loadSeen, saveSeen, storyKey } from "@/lib/seenStories";
 import type { UserStories } from "@/lib/types";
 import { PlusIcon } from "./Icons";
 
+// Stories expire 24h after they're posted. Filtered at fetch time (not render) so
+// the clock read stays out of the render path.
+function freshStories(groups: UserStories[]): UserStories[] {
+  const cutoff = Date.now() - 24 * 3600 * 1000;
+  return groups
+    .map((g) => ({
+      ...g,
+      stories: g.stories.filter((s) => {
+        const t = Date.parse(s.createAt ?? s.dateCreated ?? "");
+        return Number.isNaN(t) || t >= cutoff;
+      }),
+    }))
+    .filter((g) => g.stories.length > 0);
+}
+
 export default function StoriesBar() {
   const { user } = useAuth();
   const [groups, setGroups] = useState<UserStories[]>([]);
@@ -22,7 +37,7 @@ export default function StoriesBar() {
   const load = () =>
     storiesApi
       .all()
-      .then((res) => setGroups(Array.isArray(res) ? res : []))
+      .then((res) => setGroups(freshStories(Array.isArray(res) ? res : [])))
       .catch(() => setGroups([]));
 
   useEffect(() => {
@@ -45,18 +60,16 @@ export default function StoriesBar() {
       return id != null && seen.has(id);
     });
 
-  // Only users with stories are openable; unwatched ones bubble to the front.
-  const withStories = groups
-    .filter((g) => g.stories && g.stories.length > 0)
-    .sort((a, b) => Number(allSeen(a)) - Number(allSeen(b)));
+  // Already 24h-filtered at fetch; here just float unwatched users to the front.
+  const withStories = [...groups].sort((a, b) => Number(allSeen(a)) - Number(allSeen(b)));
 
-  const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+  const onPickFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
     e.target.value = "";
-    if (!file) return;
+    if (!files.length) return;
     setUploading(true);
     try {
-      await storiesApi.add(file);
+      for (const file of files) await storiesApi.add(file); // one call per file — API takes a single file
       await load();
     } catch {
       /* ignore */
@@ -88,8 +101,9 @@ export default function StoriesBar() {
           ref={fileInput}
           type="file"
           accept="image/*,video/*"
+          multiple
           className="hidden"
-          onChange={onPickFile}
+          onChange={onPickFiles}
         />
 
         {withStories.map((g, idx) => (
@@ -114,7 +128,11 @@ export default function StoriesBar() {
           startIndex={viewerIndex}
           seen={seen}
           onSeen={markSeen}
-          onClose={() => setViewerIndex(null)}
+          me={user}
+          onClose={() => {
+            setViewerIndex(null);
+            load(); // pick up any story the user just deleted
+          }}
         />
       )}
     </>
