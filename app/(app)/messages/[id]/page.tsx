@@ -6,12 +6,18 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import Img from "@/components/Img";
+import MessageReactions from "@/components/MessageReactions";
+import GifStickerPicker from "@/components/GifStickerPicker";
+import { CallModal } from "@/components/CallModal";
 import { chats } from "@/lib/services";
 import { otherUser } from "@/components/ChatList";
 import { useAuth } from "@/lib/auth";
 import { timeAgo } from "@/lib/utils";
 import type { ChatMessage } from "@/lib/types";
-import { BackIcon, PhoneIcon, VideoIcon, ImageIcon, ShareIcon } from "@/components/Icons";
+import { BackIcon, PhoneIcon, VideoIcon, ImageIcon, ShareIcon, SearchIcon, CloseIcon } from "@/components/Icons";
+
+const isMediaUrl = (t?: string) =>
+  !!t && (/\.(gif|png|jpe?g|webp)(\?|$)/i.test(t) || /https?:\/\/\S*giphy\.com/i.test(t));
 
 export default function ConversationPage() {
   const params = useParams<{ id: string }>();
@@ -20,6 +26,10 @@ export default function ConversationPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [peer, setPeer] = useState<{ id: string; name: string; image: string | null } | null>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [callType, setCallType] = useState<"video" | "audio" | null>(null);
+  const [showGif, setShowGif] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [query, setQuery] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const {
@@ -39,7 +49,6 @@ export default function ConversationPage() {
     }
   }, [chatId]);
 
-  // Resolve peer info from the chat list.
   useEffect(() => {
     chats
       .all()
@@ -50,7 +59,6 @@ export default function ConversationPage() {
       .catch(() => {});
   }, [chatId, user?.id]);
 
-  // Initial + polling load.
   useEffect(() => {
     loadMessages();
     const t = setInterval(loadMessages, 5000);
@@ -61,17 +69,25 @@ export default function ConversationPage() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const send = handleSubmit(async ({ text }) => {
-    if (!text.trim() && !file) return;
+  const sendText = async (text: string, f?: File) => {
+    if (!text.trim() && !f) return;
     try {
-      await chats.send(chatId, text.trim(), file ?? undefined);
-      reset();
-      setFile(null);
+      await chats.send(chatId, text.trim(), f);
       await loadMessages();
     } catch {
       /* ignore */
     }
+  };
+
+  const send = handleSubmit(async ({ text }) => {
+    await sendText(text, file ?? undefined);
+    reset();
+    setFile(null);
   });
+
+  const shown = query.trim()
+    ? messages.filter((m) => m.messageText?.toLowerCase().includes(query.trim().toLowerCase()))
+    : messages;
 
   return (
     <div className="flex h-screen flex-col">
@@ -87,35 +103,65 @@ export default function ConversationPage() {
           </Link>
         )}
         <div className="ml-auto flex items-center gap-5 text-neutral-200">
-          <PhoneIcon size={24} />
-          <VideoIcon size={24} />
+          <button onClick={() => setShowSearch((s) => !s)} aria-label="Search messages" className="hover:text-white">
+            <SearchIcon size={22} />
+          </button>
+          <button onClick={() => peer && setCallType("audio")} aria-label="Audio call" className="hover:text-white">
+            <PhoneIcon size={24} />
+          </button>
+          <button onClick={() => peer && setCallType("video")} aria-label="Video call" className="hover:text-white">
+            <VideoIcon size={24} />
+          </button>
         </div>
       </header>
 
+      {showSearch && (
+        <div className="flex items-center gap-2 border-b border-line px-4 py-2">
+          <SearchIcon size={16} className="text-neutral-500" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search in conversation…"
+            autoFocus
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-500"
+          />
+          {query && (
+            <button onClick={() => setQuery("")} className="text-neutral-500">
+              <CloseIcon size={16} />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* messages */}
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-4">
-        {messages.length === 0 && (
+        {shown.length === 0 && (
           <p className="my-auto text-center text-sm text-neutral-500">
-            No messages yet. Say hi 👋
+            {query ? "No matching messages." : "No messages yet. Say hi 👋"}
           </p>
         )}
-        {messages.map((m) => {
+        {shown.map((m) => {
           const mine = m.userId === user?.id;
+          const gif = isMediaUrl(m.messageText);
           return (
-            <div key={m.messageId} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
+            <div key={m.messageId} className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
               <div
                 className={`max-w-[70%] rounded-2xl px-3.5 py-2 text-sm ${
-                  mine ? "bg-ig-blue text-white" : "bg-neutral-800 text-neutral-100"
+                  gif ? "bg-transparent p-0" : mine ? "bg-ig-blue text-white" : "bg-neutral-800 text-neutral-100"
                 }`}
               >
-                {m.file && (
-                  <Img src={m.file} alt="attachment" className="mb-1 max-h-64 rounded-lg object-cover" />
+                {m.file && <Img src={m.file} alt="attachment" className="mb-1 max-h-64 rounded-lg object-cover" />}
+                {gif ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={m.messageText} alt="gif" className="max-h-64 rounded-lg" />
+                ) : (
+                  m.messageText && <p className="whitespace-pre-line break-words">{m.messageText}</p>
                 )}
-                {m.messageText && <p className="whitespace-pre-line break-words">{m.messageText}</p>}
-                <span className="mt-0.5 block text-[10px] opacity-60">
-                  {timeAgo(m.sendMassageDate)}
-                </span>
+                {!gif && (
+                  <span className="mt-0.5 block text-[10px] opacity-60">{timeAgo(m.sendMassageDate)}</span>
+                )}
               </div>
+              <MessageReactions messageId={m.messageId} mine={mine} />
             </div>
           );
         })}
@@ -123,9 +169,12 @@ export default function ConversationPage() {
       </div>
 
       {/* composer */}
-      <form onSubmit={send} className="flex items-center gap-2 border-t border-line px-4 py-3">
-        <button type="button" onClick={() => fileRef.current?.click()} className="text-neutral-300">
+      <form onSubmit={send} className="relative flex items-center gap-2 border-t border-line px-4 py-3">
+        <button type="button" onClick={() => fileRef.current?.click()} className="text-neutral-300 hover:text-white" aria-label="Attach image">
           <ImageIcon size={24} />
+        </button>
+        <button type="button" onClick={() => setShowGif((s) => !s)} className="text-xs font-bold text-neutral-300 hover:text-white" aria-label="GIF">
+          GIF
         </button>
         <input
           ref={fileRef}
@@ -148,7 +197,18 @@ export default function ConversationPage() {
         >
           <ShareIcon size={24} />
         </button>
+
+        {showGif && (
+          <GifStickerPicker
+            onPick={(text) => sendText(text)}
+            onClose={() => setShowGif(false)}
+          />
+        )}
       </form>
+
+      {callType && peer && user && (
+        <CallModal me={user} peerId={peer.id} peerName={peer.name} type={callType} onClose={() => setCallType(null)} />
+      )}
     </div>
   );
 }

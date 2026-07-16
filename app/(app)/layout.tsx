@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import Sidebar from "@/components/Sidebar";
 import MobileNav from "@/components/MobileNav";
+import { IncomingCallWatcher } from "@/components/CallModal";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -27,6 +28,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <Sidebar />
       <main className="min-w-0 flex-1 pb-16 md:pb-0">{children}</main>
       <MobileNav />
+      <IncomingCallWatcher me={user} />
     </div>
   );
 }

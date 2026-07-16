@@ -89,6 +89,50 @@ export const reposts = {
   byUser: (userId: string) => extraApi.get<Envelope<Repost[]>>("/Repost/user", { userId }),
 };
 
+// ---------- Calls / reactions / GIF / stickers (extra backend) ----------
+export interface CallDto {
+  id: number;
+  callerId: string;
+  callerName: string;
+  calleeId: string;
+  calleeName: string;
+  type: "video" | "audio";
+  status: "ringing" | "accepted" | "declined" | "ended" | "missed";
+  createdAt: string;
+  endedAt: string | null;
+}
+export interface GifDto { id: string; url: string; preview: string; title: string; width: number; height: number }
+export interface StickerDto { id: number; pack: string; name: string; url: string }
+export interface MsgReactions { total: number; summary: { emoji: string; count: number }[]; mine: string | null }
+
+export const calls = {
+  start: (payload: { callerId: string; callerName: string; calleeId: string; calleeName: string; type: "video" | "audio" }) =>
+    extraApi.postJson<Envelope<CallDto>>("/Call/start", payload),
+  incoming: (userId: string) => extraApi.get<Envelope<CallDto[]>>("/Call/incoming", { userId }),
+  get: (callId: number) => extraApi.get<Envelope<CallDto>>("/Call/get", { callId }),
+  accept: (callId: number) => extraApi.putJson<Envelope<CallDto>>("/Call/accept", undefined, { callId }),
+  decline: (callId: number) => extraApi.putJson<Envelope<CallDto>>("/Call/decline", undefined, { callId }),
+  end: (callId: number) => extraApi.putJson<Envelope<CallDto>>("/Call/end", undefined, { callId }),
+};
+
+export const messageReactions = {
+  add: (messageId: number, userId: string, userName: string, emoji: string) =>
+    extraApi.postJson("/MessageReaction/add", { messageId, userId, userName, emoji }),
+  get: (messageId: number, userId: string) =>
+    extraApi.get<Envelope<MsgReactions>>("/MessageReaction/get", { messageId, userId }),
+  remove: (messageId: number, userId: string) =>
+    extraApi.del("/MessageReaction/remove", { messageId, userId }),
+};
+
+export const gifs = {
+  search: (q: string, limit = 24) => extraApi.get<Envelope<GifDto[]>>("/Gif/search", { q, limit }),
+  trending: (limit = 24) => extraApi.get<Envelope<GifDto[]>>("/Gif/trending", { limit }),
+};
+
+export const stickerCatalog = {
+  get: (pack?: string) => extraApi.get<Envelope<StickerDto[]>>("/Sticker/get", { pack }),
+};
+
 // ---------- Not interested (extra backend) — hide posts from the feed ----------
 export const notInterested = {
   add: (userId: string, postId: number) =>
