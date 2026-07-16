@@ -6,7 +6,7 @@ import Link from "next/link";
 import Avatar from "./Avatar";
 import PostCarousel from "./PostCarousel";
 import PostModal from "./PostModal";
-import { posts as postsApi, reposts as repostsApi } from "@/lib/services";
+import { posts as postsApi, reposts as repostsApi, notInterested as notInterestedApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import { timeAgo, formatCount } from "@/lib/utils";
 import type { Post, PostComment } from "@/lib/types";
@@ -83,6 +83,13 @@ export default function PostCard({
   }
 
   const canDelete = !!user && post.userId === user.id;
+  const canHide = !!user && post.userId !== user.id; // "не интересует" — только чужие посты
+
+  async function notInterested() {
+    if (user) notInterestedApi.add(user.id, post.postId).catch(() => {});
+    setDeleted(true);
+    onDeleted?.();
+  }
 
   async function deletePost() {
     try {
@@ -168,7 +175,7 @@ export default function PostCard({
           <span className="ml-1 text-sm text-neutral-500">· {timeAgo(post.datePublished)}</span>
           {post.title && <p className="truncate text-xs text-neutral-400">{post.title}</p>}
         </div>
-        {(isRepost || canDelete) && (
+        {(isRepost || canDelete || canHide) && (
           <DropdownMenu>
             <DropdownMenuTrigger
               aria-label="Post options"
@@ -177,6 +184,15 @@ export default function PostCard({
               <MoreIcon size={20} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {canHide && (
+                <DropdownMenuItem onSelect={notInterested} className="font-semibold">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" /><line x1="4.9" y1="4.9" x2="19.1" y2="19.1" />
+                  </svg>
+                  Not interested
+                </DropdownMenuItem>
+              )}
+              {canHide && (isRepost || canDelete) && <DropdownMenuSeparator />}
               {isRepost && (
                 <DropdownMenuItem onSelect={removeRepost} className="font-semibold text-ig-red">
                   <RepostIcon size={18} /> Remove repost

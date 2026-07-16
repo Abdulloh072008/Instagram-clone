@@ -89,6 +89,15 @@ export const reposts = {
   byUser: (userId: string) => extraApi.get<Envelope<Repost[]>>("/Repost/user", { userId }),
 };
 
+// ---------- Not interested (extra backend) — hide posts from the feed ----------
+export const notInterested = {
+  add: (userId: string, postId: number) =>
+    extraApi.postJson("/NotInterested/add", undefined, { userId, postId }),
+  remove: (userId: string, postId: number) =>
+    extraApi.del("/NotInterested/remove", { userId, postId }),
+  list: (userId: string) => extraApi.get<Envelope<number[]>>("/NotInterested/get", { userId }),
+};
+
 // ---------- Stories ----------
 export const stories = {
   all: () => api.get<UserStories[]>("/Story/get-stories"),
@@ -102,10 +111,26 @@ export const stories = {
     return api.postForm("/Story/AddStories", form, { PostId: postId });
   },
   remove: (id: number) => api.del("/Story/DeleteStory", { id }),
-  // ponytail: no story-reaction endpoint exists; reuse /Reaction keyed by storyId
-  // via the postId field. Collides only if a post and a story share the same id.
+
+  // Real story interactions (companion backend /StoryInteract/*).
   react: (userId: string, userName: string, storyId: number, emoji: string) =>
-    extraApi.postJson("/Reaction/add", { userId, userName, postId: storyId, emoji }),
+    extraApi.postJson("/StoryInteract/react", { storyId, userId, userName, emoji }),
+  reactions: (storyId: number, userId: string) =>
+    extraApi.get<Envelope<{ total: number; summary: { emoji: string; count: number }[]; mine: string | null }>>(
+      "/StoryInteract/get-reactions",
+      { storyId, userId },
+    ),
+  removeReaction: (userId: string, storyId: number) =>
+    extraApi.del("/StoryInteract/remove-reaction", { storyId, userId }),
+  // Reply is delivered to the story author (not a comment on a post anymore).
+  reply: (storyId: number, ownerUserId: string, fromUserId: string, fromUserName: string, text: string) =>
+    extraApi.postJson("/StoryInteract/reply", { storyId, ownerUserId, fromUserId, fromUserName, text }),
+  replies: (ownerUserId: string) =>
+    extraApi.get<Envelope<unknown[]>>("/StoryInteract/get-replies", { ownerUserId }),
+  // Cross-device "seen" (survives across devices, not just localStorage).
+  markViewed: (storyId: number, userId: string) =>
+    extraApi.postJson("/StoryInteract/mark-viewed", undefined, { storyId, userId }),
+  viewed: (userId: string) => extraApi.get<Envelope<number[]>>("/StoryInteract/get-viewed", { userId }),
 };
 
 // ---------- Users / search ----------

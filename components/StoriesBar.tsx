@@ -32,7 +32,21 @@ export default function StoriesBar() {
   const [uploading, setUploading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  useEffect(() => setSeen(loadSeen()), []);
+  // Seen-state: localStorage first (instant), then merge cross-device views
+  // from the companion backend so the grey ring is consistent across devices.
+  useEffect(() => {
+    setSeen(loadSeen());
+    if (user?.id) {
+      storiesApi
+        .viewed(user.id)
+        .then((res) => {
+          const ids = res.data ?? [];
+          if (ids.length) setSeen((prev) => new Set([...prev, ...ids]));
+        })
+        .catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   const load = () =>
     storiesApi

@@ -5,7 +5,7 @@ import Avatar from "./Avatar";
 import Img from "./Img";
 import { timeAgo, isVideo } from "@/lib/utils";
 import { imageUrl } from "@/lib/config";
-import { stories as storiesApi, posts as postsApi } from "@/lib/services";
+import { stories as storiesApi } from "@/lib/services";
 import { storyKey } from "@/lib/seenStories";
 import type { UserStories, StoryItem, AuthUser } from "@/lib/types";
 import {
@@ -98,13 +98,15 @@ export default function StoryViewer({
     }
   }, [si, gi, groups]);
 
-  // Mark each shown story as seen (locally + on the backend).
+  // Mark each shown story as seen: locally, on softclub, and cross-device
+  // (companion) so the grey ring survives across devices.
   useEffect(() => {
     if (id != null) {
       onSeen(id);
       storiesApi.view(id).catch(() => {});
+      if (me?.id) storiesApi.markViewed(id, me.id).catch(() => {});
     }
-  }, [id, onSeen]);
+  }, [id, onSeen, me?.id]);
 
   // Image timer — resumes from where it paused; videos drive their own progress.
   useEffect(() => {
@@ -162,13 +164,12 @@ export default function StoryViewer({
     storiesApi.react(me.id, me.userName, id, emoji).catch(() => {});
   };
 
-  // "Comment" = reply, routed to a comment on the story's underlying post.
+  // Reply is delivered to the story author (real endpoint, works for any story).
   const sendReply = () => {
     const text = reply.trim();
-    const postId = story.postId;
-    if (!text || !postId) return;
+    if (!text || id == null || !me) return;
     setReply("");
-    postsApi.addComment(postId, text).catch(() => {});
+    storiesApi.reply(id, group.userId, me.id, me.userName, text).catch(() => {});
   };
 
   const remove = () => {
