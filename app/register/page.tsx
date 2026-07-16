@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -18,6 +19,7 @@ type Fields = Record<(typeof FIELDS)[number]["k"], string>;
 export default function RegisterPage() {
   const { register: registerUser, login } = useAuth();
   const router = useRouter();
+  const [shown, setShown] = useState<Record<string, boolean>>({});
   const {
     register,
     handleSubmit,
@@ -47,20 +49,35 @@ export default function RegisterPage() {
           </p>
           <form onSubmit={onSubmit} className="flex flex-col gap-2.5">
             {FIELDS.map((f) => (
-              <input
-                key={f.k}
-                type={f.type}
-                autoCapitalize="none"
-                placeholder={f.ph}
-                {...register(f.k, {
-                  required: true,
-                  validate:
-                    f.k === "confirmPassword"
-                      ? (v) => v === watch("password") || "Passwords do not match"
-                      : undefined,
-                })}
-                className="rounded-lg border border-line bg-neutral-900 px-3 py-2.5 text-sm outline-none focus:border-neutral-500"
-              />
+              <div key={f.k} className="relative">
+                <input
+                  type={f.type === "password" && shown[f.k] ? "text" : f.type}
+                  autoCapitalize="none"
+                  placeholder={f.ph}
+                  {...register(f.k, {
+                    required: true,
+                    validate:
+                      f.k === "confirmPassword"
+                        ? (v) => v === watch("password") || "Passwords do not match"
+                        : undefined,
+                  })}
+                  className="w-full rounded-lg border border-line bg-neutral-900 px-3 py-2.5 pr-10 text-sm outline-none focus:border-neutral-500"
+                />
+                {f.type === "password" && (
+                  <button
+                    type="button"
+                    onClick={() => setShown((s) => ({ ...s, [f.k]: !s[f.k] }))}
+                    aria-label={shown[f.k] ? "Hide password" : "Show password"}
+                    className="absolute inset-y-0 right-0 px-3 text-neutral-400 hover:text-neutral-200"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+                      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                      <circle cx="12" cy="12" r="3" />
+                      {shown[f.k] && <line x1="3" y1="3" x2="21" y2="21" />}
+                    </svg>
+                  </button>
+                )}
+              </div>
             ))}
             <button
               type="submit"
