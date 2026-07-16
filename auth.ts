@@ -15,4 +15,21 @@ import Google from "next-auth/providers/google";
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [Google],
   trustHost: true,
+  callbacks: {
+    // Сохраняем id внешнего аккаунта в токен при первом входе...
+    jwt({ token, account }) {
+      if (account) {
+        token.provider = account.provider;
+        token.providerAccountId = account.providerAccountId;
+      }
+      return token;
+    },
+    // ...и прокидываем его в сессию, чтобы фронт мог привязать Google к softclub.
+    session({ session, token }) {
+      session.provider = token.provider;
+      session.providerAccountId = token.providerAccountId;
+      return session;
+    },
+  },
 });
+
