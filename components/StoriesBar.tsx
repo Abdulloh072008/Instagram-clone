@@ -1,60 +1,123 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Avatar from "./Avatar";
 import StoryViewer from "./StoryViewer";
 import { stories as storiesApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
+import { loadSeen, saveSeen, storyKey } from "@/lib/seenStories";
 import type { UserStories } from "@/lib/types";
 import { PlusIcon } from "./Icons";
+
+// Stories expire 24h after they're posted. Filtered at fetch time (not render) so
+// the clock read stays out of the render path.
+function freshStories(groups: UserStories[]): UserStories[] {
+  const cutoff = Date.now() - 24 * 3600 * 1000;
+  return groups
+    .map((g) => ({
+      ...g,
+      stories: g.stories.filter((s) => {
+        const t = Date.parse(s.createAt ?? s.dateCreated ?? "");
+        return Number.isNaN(t) || t >= cutoff;
+      }),
+    }))
+    .filter((g) => g.stories.length > 0);
+}
 
 export default function StoriesBar() {
   const { user } = useAuth();
   const [groups, setGroups] = useState<UserStories[]>([]);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [seen, setSeen] = useState<Set<number>>(new Set());
+  const [uploading, setUploading] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  useEffect(() => setSeen(loadSeen()), []);
+
+  const load = () =>
     storiesApi
       .all()
-      .then((res) => setGroups(Array.isArray(res) ? res : []))
+      .then((res) => setGroups(freshStories(Array.isArray(res) ? res : [])))
       .catch(() => setGroups([]));
+
+  useEffect(() => {
+    load();
   }, []);
 
-  // Only users that actually have stories are openable.
-  const withStories = groups.filter((g) => g.stories && g.stories.length > 0);
+  // Stable identity so StoryViewer's mark-seen effect only fires on story change.
+  const markSeen = useCallback((id: number) => {
+    setSeen((prev) => {
+      if (prev.has(id)) return prev; // no-op keeps the same Set → no extra render
+      const next = new Set(prev).add(id);
+      saveSeen(next);
+      return next;
+    });
+  }, []);
+
+  const allSeen = (g: UserStories) =>
+    g.stories.every((s) => {
+      const id = storyKey(s);
+      return id != null && seen.has(id);
+    });
+
+  // Already 24h-filtered at fetch; here just float unwatched users to the front.
+  const withStories = [...groups].sort((a, b) => Number(allSeen(a)) - Number(allSeen(b)));
+
+  const onPickFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (!files.length) return;
+    setUploading(true);
+    try {
+      for (const file of files) await storiesApi.add(file); // one call per file — API takes a single file
+      await load();
+    } catch {
+      /* ignore */
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <>
       <div className="no-scrollbar flex gap-4 overflow-x-auto border-b border-line px-3 py-4 md:rounded-lg md:border">
-        {/* Your story */}
-        <div className="flex w-16 shrink-0 flex-col items-center gap-1">
+        {/* Your story — add from here */}
+        <button
+          onClick={() => fileInput.current?.click()}
+          disabled={uploading}
+          className="flex w-16 shrink-0 flex-col items-center gap-1"
+        >
           <div className="relative">
-            <Avatar name={user?.userName} size={58} />
+            <Avatar src={user?.image} name={user?.userName} size={58} />
             <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-black bg-ig-blue">
               <PlusIcon size={12} />
             </span>
           </div>
-          <span className="w-full truncate text-center text-xs text-neutral-400">Your story</span>
-        </div>
+          <span className="w-full truncate text-center text-xs text-neutral-400">
+            {uploading ? "Adding…" : "Your story"}
+          </span>
+        </button>
+        <input
+          ref={fileInput}
+          type="file"
+          accept="image/*,video/*"
+          multiple
+          className="hidden"
+          onChange={onPickFiles}
+        />
 
-        {groups.map((g) => {
-          const openable = g.stories && g.stories.length > 0;
-          const idx = withStories.findIndex((x) => x.userId === g.userId);
-          return (
-            <button
-              key={g.userId}
-              onClick={() => openable && setViewerIndex(idx)}
-              className="flex w-16 shrink-0 flex-col items-center gap-1"
-            >
-              <Avatar src={g.userImage} name={g.userName} size={58} ring={openable} />
-              <span className="w-full truncate text-center text-xs text-neutral-300">
-                {g.userName}
-              </span>
-            </button>
-          );
-        })}
+        {withStories.map((g, idx) => (
+          <button
+            key={g.userId}
+            onClick={() => setViewerIndex(idx)}
+            className="flex w-16 shrink-0 flex-col items-center gap-1"
+          >
+            <Avatar src={g.userImage} name={g.userName} size={58} ring={allSeen(g) ? "seen" : true} />
+            <span className="w-full truncate text-center text-xs text-neutral-300">{g.userName}</span>
+          </button>
+        ))}
 
-        {groups.length === 0 && (
+        {withStories.length === 0 && (
           <div className="flex items-center text-sm text-neutral-600">No stories yet</div>
         )}
       </div>
@@ -63,7 +126,13 @@ export default function StoriesBar() {
         <StoryViewer
           groups={withStories}
           startIndex={viewerIndex}
-          onClose={() => setViewerIndex(null)}
+          seen={seen}
+          onSeen={markSeen}
+          me={user}
+          onClose={() => {
+            setViewerIndex(null);
+            load(); // pick up any story the user just deleted
+          }}
         />
       )}
     </>

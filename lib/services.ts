@@ -96,11 +96,16 @@ export const stories = {
   byUser: (userId: string) => api.get<UserStories>(`/Story/get-user-stories/${userId}`),
   like: (storyId: number) => api.postJson("/Story/LikeStory", undefined, { storyId }),
   view: (storyId: number) => api.postJson("/Story/add-story-view", undefined, { storyId }),
-  add: (postId: number, image: File) => {
+  add: (image: File, postId?: number) => {
     const form = new FormData();
     form.append("Image", image);
     return api.postForm("/Story/AddStories", form, { PostId: postId });
   },
+  remove: (id: number) => api.del("/Story/DeleteStory", { id }),
+  // ponytail: no story-reaction endpoint exists; reuse /Reaction keyed by storyId
+  // via the postId field. Collides only if a post and a story share the same id.
+  react: (userId: string, userName: string, storyId: number, emoji: string) =>
+    extraApi.postJson("/Reaction/add", { userId, userName, postId: storyId, emoji }),
 };
 
 // ---------- Users / search ----------
