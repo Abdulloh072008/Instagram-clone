@@ -1,6 +1,14 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { storyKey, loadSeen, saveSeen, freshStories, followedStories } from "./seenStories.ts";
+import {
+  storyKey,
+  loadSeen,
+  saveSeen,
+  freshStories,
+  followedStories,
+  storyExpiry,
+  nextExpiry,
+} from "./seenStories.ts";
 import type { StoryItem, UserStories } from "./types.ts";
 
 // Node has no localStorage/window; both are read at call time, so a global stub
@@ -95,6 +103,67 @@ test("freshStories leaves the caller's array and groups untouched", () => {
   const input = [group([hoursAgo(1), hoursAgo(30)])];
   freshStories(input);
   assert.equal(input[0].stories.length, 2);
+});
+
+const inHours = (h: number) => new Date(Date.now() + h * 3600e3).toISOString();
+
+test("storyExpiry follows the server's expiresAt over its own 24h guess", () => {
+  // Server says it dies in an hour even though it was posted 10h ago: server wins.
+  const expiresAt = inHours(1);
+  const s = { id: 1, createdAt: hoursAgo(10), expiresAt } as StoryItem;
+  assert.equal(storyExpiry(s), Date.parse(expiresAt));
+});
+
+test("storyExpiry falls back to 24h after posting when expiresAt is absent", () => {
+  const createdAt = hoursAgo(10);
+  assert.equal(storyExpiry({ id: 1, createdAt } as StoryItem), Date.parse(createdAt) + 24 * 3600e3);
+});
+
+test("storyExpiry treats an unreadable date as never expiring", () => {
+  assert.equal(storyExpiry({ id: 1, createdAt: "nonsense" } as StoryItem), Infinity);
+  assert.equal(storyExpiry({ id: 1 } as StoryItem), Infinity);
+});
+
+test("freshStories drops a story whose server expiresAt has passed", () => {
+  const g: UserStories = {
+    userId: "u1",
+    userName: "ann",
+    userImage: null,
+    stories: [
+      { id: 1, createdAt: hoursAgo(1), expiresAt: inHours(-1) },
+      { id: 2, createdAt: hoursAgo(1), expiresAt: inHours(5) },
+    ] as StoryItem[],
+  };
+  assert.deepEqual(
+    freshStories([g])[0].stories.map((s) => s.id),
+    [2],
+  );
+});
+
+test("freshStories judges against the clock it is given", () => {
+  const g: UserStories = {
+    userId: "u1",
+    userName: "ann",
+    userImage: null,
+    stories: [{ id: 1, expiresAt: inHours(2) }] as StoryItem[],
+  };
+  assert.equal(freshStories([g], Date.now()).length, 1, "alive now");
+  assert.deepEqual(freshStories([g], Date.now() + 3 * 3600e3), [], "gone 3h from now");
+});
+
+test("nextExpiry reports the soonest story to lapse", () => {
+  const soonest = inHours(2);
+  const g: UserStories = {
+    userId: "u1",
+    userName: "ann",
+    userImage: null,
+    stories: [{ id: 1, expiresAt: inHours(5) }, { id: 2, expiresAt: soonest }] as StoryItem[],
+  };
+  assert.equal(nextExpiry([g]), Date.parse(soonest));
+});
+
+test("nextExpiry is Infinity when nothing will expire", () => {
+  assert.equal(nextExpiry([]), Infinity);
 });
 
 const by = (userId: string): UserStories => ({

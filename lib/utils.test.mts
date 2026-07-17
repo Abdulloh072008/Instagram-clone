@@ -1,8 +1,38 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { timeAgo, formatCount, isVideo, seedGradient, initial } from "./utils.ts";
+import { timeAgo, formatCount, isVideo, seedGradient, initial, parseApiDate } from "./utils.ts";
 
 const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
+/** How the extra backend sends it: same instant, no zone marker. */
+const zoneless = (ms: number) => new Date(Date.now() - ms).toISOString().replace("Z", "");
+
+test("parseApiDate reads a zoneless backend timestamp as UTC, not local", () => {
+  // The whole point: these two spell the same instant, and must parse alike.
+  // Read as local, a fresh story ages by the viewer's UTC offset (5h in UTC+5).
+  const iso = "2026-07-17T10:49:58.370Z";
+  assert.equal(parseApiDate("2026-07-17T10:49:58.370"), Date.parse(iso));
+});
+
+test("parseApiDate leaves timestamps that already carry a zone alone", () => {
+  assert.equal(parseApiDate("2026-03-14T07:30:00.035Z"), Date.parse("2026-03-14T07:30:00.035Z"));
+  assert.equal(parseApiDate("2026-03-14T12:30:00.035+05:00"), Date.parse("2026-03-14T07:30:00.035Z"));
+});
+
+test("parseApiDate leaves date-only strings alone (already UTC by spec)", () => {
+  assert.equal(parseApiDate("2026-07-17"), Date.parse("2026-07-17"));
+});
+
+test("parseApiDate is NaN for missing or unreadable input", () => {
+  assert.ok(Number.isNaN(parseApiDate()));
+  assert.ok(Number.isNaN(parseApiDate("")));
+  assert.ok(Number.isNaN(parseApiDate("not a date")));
+});
+
+test("timeAgo reads a just-posted zoneless story as seconds old, not hours", () => {
+  // Regression: this read "5h" for a fresh story in UTC+5 before parseApiDate.
+  assert.match(timeAgo(zoneless(3_000)), /^\ds$/);
+  assert.equal(timeAgo(zoneless(2 * 3600e3)), "2h");
+});
 
 test("timeAgo picks the right unit at each boundary", () => {
   assert.equal(timeAgo(ago(5_000)), "5s");
