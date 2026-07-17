@@ -29,7 +29,7 @@ export default function FollowButton({
     let alive = true;
     profiles
       .isFollowing(userId)
-      .then((r) => alive && setFollowing(Boolean(r.data)))
+      .then((yes) => alive && setFollowing(yes))
       .catch(() => {});
     return () => {
       alive = false;

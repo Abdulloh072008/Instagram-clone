@@ -168,12 +168,19 @@ export const users = {
 export const profiles = {
   me: () => api.get<Envelope<UserProfile>>("/UserProfile/get-my-profile"),
   byId: (id: string) => api.get<Envelope<UserProfile>>("/UserProfile/get-user-profile-by-id", { id }),
-  // The query param is `followingUserId`, not `id` — sending `id` meant the
-  // endpoint never saw who was being asked about and always answered "no".
+  // Two traps here, both verified against the live API:
+  //  - the query param is `followingUserId`, not `id`; sending `id` gets a 404,
+  //  - despite the name it answers with the target's PROFILE carrying an
+  //    `isSubscriber` flag, not a bare boolean. `Boolean(envelope.data)` is
+  //    therefore always true, which marks every account as already followed.
+  // Unwrap to a real yes/no here so no caller can repeat either mistake.
   isFollowing: (followingUserId: string) =>
-    api.get<Envelope<boolean>>("/UserProfile/get-is-follow-user-profile-by-id", {
-      followingUserId,
-    }),
+    api
+      .get<Envelope<{ isSubscriber?: boolean } | null>>(
+        "/UserProfile/get-is-follow-user-profile-by-id",
+        { followingUserId },
+      )
+      .then((r) => r.data?.isSubscriber === true),
   update: (about: string, gender: number) =>
     api.putJson("/UserProfile/update-user-profile", { about, gender }),
   updateImage: (imageFile: File) => {

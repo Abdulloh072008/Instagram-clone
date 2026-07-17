@@ -25,12 +25,12 @@ export default function UserProfilePage() {
     Promise.all([
       profiles.byId(id),
       postsApi.byUser(id, 1, 30),
-      profiles.isFollowing(id).catch(() => ({ data: false })),
+      profiles.isFollowing(id).catch(() => false),
     ])
       .then(([p, posts, follow]) => {
         setProfile(p.data);
         setUserPosts(posts.data ?? []);
-        setFollowing(Boolean((follow as { data: boolean }).data));
+        setFollowing(follow);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
