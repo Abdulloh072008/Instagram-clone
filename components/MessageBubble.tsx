@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Avatar from "./Avatar";
 import Img from "./Img";
 import VoiceMessage from "./VoiceMessage";
-import { SmileIcon } from "./Icons";
+import { SmileIcon, MoreIcon } from "./Icons";
 import { parseApiDate } from "@/lib/utils";
 import { reactionKey, toggleReaction } from "@/lib/chat";
 import { messageReactions } from "@/lib/services";
@@ -36,12 +36,14 @@ export default function MessageBubble({
   startsGroup,
   endsGroup,
   peerImage,
+  onUnsend,
 }: {
   m: UnifiedMessage;
   mine: boolean;
   startsGroup: boolean;
   endsGroup: boolean;
   peerImage?: string | null;
+  onUnsend: (m: UnifiedMessage) => void;
 }) {
   const { user } = useAuth();
   const sending = m.sending || m.id < 0;
@@ -50,6 +52,7 @@ export default function MessageBubble({
 
   const [reactions, setReactions] = useState<MessageReactions | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
   const fetchedRef = useRef(false);
 
@@ -162,6 +165,32 @@ export default function MessageBubble({
                       {e}
                     </button>
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* unsend — own messages only */}
+          {!sending && mine && (
+            <div className="relative opacity-0 transition group-hover:opacity-100">
+              <button
+                onClick={() => setMenuOpen((v) => !v)}
+                aria-label="Message options"
+                className="text-neutral-400 hover:text-neutral-200"
+              >
+                <MoreIcon size={18} />
+              </button>
+              {menuOpen && (
+                <div className="absolute bottom-full right-0 z-10 mb-1 overflow-hidden rounded-lg bg-neutral-800 shadow-lg ring-1 ring-black/40">
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onUnsend(m);
+                    }}
+                    className="whitespace-nowrap px-4 py-2 text-sm font-medium text-red-500 hover:bg-neutral-700"
+                  >
+                    Unsend
+                  </button>
                 </div>
               )}
             </div>

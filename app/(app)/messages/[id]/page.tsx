@@ -178,6 +178,25 @@ export default function ConversationPage() {
     [user, chatId, optimisticFor, dispatchSend],
   );
 
+  // Unsend routes to whichever store the message actually lives in — the main
+  // /Chat delete param is misspelled `massageId` (handled in services).
+  const unsend = useCallback(
+    async (m: UnifiedMessage) => {
+      // Optimistically hide it so the bubble disappears at once.
+      setMessages((prev) => prev.filter((x) => x.key !== m.key));
+      try {
+        if (m.store === "extra") await chatExtra.remove(m.id);
+        else await chats.deleteMessage(m.id);
+        await loadMessages();
+        window.dispatchEvent(new Event(CHAT_SENT_EVENT));
+      } catch {
+        toast("Couldn't unsend the message");
+        loadMessages(); // put it back if the delete didn't take
+      }
+    },
+    [loadMessages],
+  );
+
   const sendVoice = useCallback(
     (blob: Blob, seconds: number) => {
       if (!user) return;
@@ -240,6 +259,7 @@ export default function ConversationPage() {
               startsGroup={row.startsGroup}
               endsGroup={row.endsGroup}
               peerImage={peer?.image}
+              onUnsend={unsend}
             />
           );
         })}
