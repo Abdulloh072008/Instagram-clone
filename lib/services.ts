@@ -3,10 +3,16 @@ import { api, extraApi } from "./client";
 import type {
   AppNotification,
   AuthUser,
+  CallInfo,
+  CallSignal,
+  CallType,
   ChatListItem,
   ChatMessage,
   Envelope,
+  ExtraMessage,
   FollowListItem,
+  GifItem,
+  MessageReactions,
   Paged,
   Post,
   Repost,
@@ -237,6 +243,99 @@ export const chats = {
     if (file) form.append("File", file);
     return api.putForm("/Chat/send-message", form);
   },
-  deleteMessage: (messageId: number) => api.del("/Chat/delete-message", { messageId }),
+  // The backend misspells the query param as `massageId`; sending `messageId`
+  // is silently ignored and nothing gets deleted. Verified against the live spec.
+  deleteMessage: (messageId: number) => api.del("/Chat/delete-message", { massageId: messageId }),
   deleteChat: (chatId: number) => api.del("/Chat/delete-chat", { chatId }),
+};
+
+// ---------- Rich messages (extra backend, no JWT: sender is explicit) ----------
+// A parallel per-chat store keyed by the same chatId. Holds what main /Chat
+// can't: gif/voice/sticker, plus "seen" read-receipt markers. Only this client
+// sees these — the main API and other clients never do.
+export const chatExtra = {
+  get: (chatId: number, type?: string) =>
+    extraApi.get<Envelope<ExtraMessage[]>>("/ChatExtra/get", { chatId, type }),
+
+  // JSON send for anything whose media is already a URL (gif, sticker).
+  send: (chatId: number, me: AuthUser, kind: string, opts: { text?: string; mediaUrl?: string }) =>
+    extraApi.postJson<Envelope<ExtraMessage>>("/ChatExtra/send", {
+      chatId,
+      senderId: me.id,
+      senderName: me.userName,
+      type: kind,
+      text: opts.text ?? null,
+      mediaUrl: opts.mediaUrl ?? null,
+      fileName: null,
+    }),
+
+  // Multipart send for a recorded blob (voice notes).
+  sendFile: (chatId: number, me: AuthUser, kind: string, file: File, durationSec?: number, text?: string) => {
+    const form = new FormData();
+    form.append("ChatId", String(chatId));
+    form.append("SenderId", me.id);
+    form.append("SenderName", me.userName);
+    form.append("Type", kind);
+    form.append("File", file);
+    if (durationSec != null) form.append("DurationSec", String(Math.round(durationSec)));
+    if (text) form.append("Text", text);
+    return extraApi.postForm<Envelope<ExtraMessage>>("/ChatExtra/send-file", form);
+  },
+
+  remove: (id: number) => extraApi.del("/ChatExtra/delete", { id }),
+};
+
+// ---------- Message reactions (extra backend) ----------
+// Keyed by a messageId that spans both stores via reactionKey() — see lib/chat.
+export const messageReactions = {
+  get: (messageId: number, userId?: string) =>
+    extraApi.get<Envelope<MessageReactions>>("/MessageReaction/get", { messageId, userId }),
+  add: (messageId: number, me: AuthUser, emoji: string) =>
+    extraApi.postJson("/MessageReaction/add", {
+      messageId,
+      userId: me.id,
+      userName: me.userName,
+      emoji,
+    }),
+  remove: (messageId: number, userId: string) =>
+    extraApi.del("/MessageReaction/remove", { messageId, userId }),
+};
+
+// ---------- GIFs & stickers (extra backend) ----------
+export const gifs = {
+  trending: (limit = 24) => extraApi.get<Envelope<GifItem[]>>("/Gif/trending", { limit }),
+  search: (q: string, limit = 24, offset = 0) =>
+    extraApi.get<Envelope<GifItem[]>>("/Gif/search", { q, limit, offset }),
+};
+
+// In this backend a "sticker" is a big emoji: `url` is the emoji glyph itself,
+// not an image address. MessageBubble renders it as large text accordingly.
+export const stickers = {
+  packs: () => extraApi.get<Envelope<string[]>>("/Sticker/packs"),
+  get: (pack: string) =>
+    extraApi.get<Envelope<{ id: number; pack: string; name: string; url: string }[]>>("/Sticker/get", { pack }),
+};
+
+// ---------- Calls (extra backend) ----------
+// State + WebRTC signaling. Media is negotiated over send-signal/get-signals;
+// the API never touches audio/video itself.
+export const calls = {
+  start: (me: AuthUser, callee: { id: string; name: string }, type: CallType) =>
+    extraApi.postJson<Envelope<CallInfo>>("/Call/start", {
+      callerId: me.id,
+      callerName: me.userName,
+      calleeId: callee.id,
+      calleeName: callee.name,
+      type,
+    }),
+  incoming: (userId: string) => extraApi.get<Envelope<CallInfo[]>>("/Call/incoming", { userId }),
+  get: (callId: number) => extraApi.get<Envelope<CallInfo>>("/Call/get", { callId }),
+  history: (userId: string) => extraApi.get<Envelope<CallInfo[]>>("/Call/history", { userId }),
+  accept: (callId: number) => extraApi.put<Envelope<CallInfo>>("/Call/accept", { callId }),
+  decline: (callId: number) => extraApi.put<Envelope<CallInfo>>("/Call/decline", { callId }),
+  end: (callId: number) => extraApi.put<Envelope<CallInfo>>("/Call/end", { callId }),
+  sendSignal: (callId: number, fromUserId: string, kind: string, payload: string) =>
+    extraApi.postJson<Envelope<CallSignal>>("/Call/send-signal", { callId, fromUserId, kind, payload }),
+  getSignals: (callId: number, userId: string, sinceId: number) =>
+    extraApi.get<Envelope<CallSignal[]>>("/Call/get-signals", { callId, userId, sinceId }),
 };

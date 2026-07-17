@@ -1,11 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Avatar from "./Avatar";
 import StoryViewer from "./StoryViewer";
 import { stories as storiesApi, follows } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
-import { loadSeen, saveSeen, storyKey, freshStories, followedStories } from "@/lib/seenStories";
+import {
+  loadSeen,
+  saveSeen,
+  storyKey,
+  freshStories,
+  followedStories,
+  nextExpiry,
+} from "@/lib/seenStories";
 import { StoriesBarSkeleton } from "./Skeleton";
 import { toast } from "@/lib/toast";
 import type { UserStories } from "@/lib/types";
@@ -13,7 +20,11 @@ import { PlusIcon } from "./Icons";
 
 export default function StoriesBar() {
   const { user } = useAuth();
-  const [groups, setGroups] = useState<UserStories[]>([]);
+  // The feed exactly as fetched; what's still live is derived from it against
+  // `now`, so a story can lapse while the tab sits open without a refetch.
+  const [fetched, setFetched] = useState<UserStories[]>([]);
+  const [now, setNow] = useState(() => Date.now());
+  const groups = useMemo(() => freshStories(fetched, now), [fetched, now]);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [seen, setSeen] = useState<Set<number>>(new Set());
   const [uploading, setUploading] = useState(false);
@@ -36,23 +47,30 @@ export default function StoriesBar() {
         .catch(() => []),
     ])
       .then(([feed, following]) =>
-        setGroups(
-          freshStories(
-            followedStories(
-              feed,
-              following.map((u) => u.userShortInfo.userId),
-              user.id,
-            ),
+        setFetched(
+          followedStories(
+            feed,
+            following.map((u) => u.userShortInfo.userId),
+            user.id,
           ),
         ),
       )
-      .catch(() => setGroups([]))
+      .catch(() => setFetched([]))
       .finally(() => setLoading(false));
   }, [user]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  // Expire on the server's clock while the tab stays open: wake exactly when the
+  // soonest story lapses instead of polling. Re-arms itself as each one goes.
+  useEffect(() => {
+    const at = nextExpiry(groups);
+    if (at === Infinity) return;
+    const t = setTimeout(() => setNow(Date.now()), Math.max(0, at - Date.now()) + 500);
+    return () => clearTimeout(t);
+  }, [groups]);
 
   // Stable identity so StoryViewer's mark-seen effect only fires on story change.
   const markSeen = useCallback((id: number) => {

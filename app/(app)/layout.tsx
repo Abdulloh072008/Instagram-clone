@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
 import Sidebar from "@/components/Sidebar";
 import MobileNav from "@/components/MobileNav";
+import CallProvider from "@/components/CallProvider";
 import Skeleton, { PostCardSkeleton } from "@/components/Skeleton";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -39,10 +40,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-[1400px]">
-      <Sidebar />
-      <main className="min-w-0 flex-1 pb-16 md:pb-0">{children}</main>
-      <MobileNav />
-    </div>
+    <CallProvider>
+      <div className="mx-auto flex min-h-screen w-full max-w-[1400px]">
+        <Sidebar />
+        <main className="min-w-0 flex-1 pb-16 md:pb-0">{children}</main>
+        <MobileNav />
+      </div>
+    </CallProvider>
   );
 }

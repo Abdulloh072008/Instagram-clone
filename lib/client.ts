@@ -118,6 +118,9 @@ export const extraApi = {
   postJson: <T = unknown>(path: string, body?: unknown, query?: Query) =>
     httpExtra.post<T>(path, body, { params: clean(query) }).then((r) => r.data),
 
+  put: <T = unknown>(path: string, query?: Query) =>
+    httpExtra.put<T>(path, undefined, { params: clean(query) }).then((r) => r.data),
+
   del: <T = unknown>(path: string, query?: Query) =>
     httpExtra.delete<T>(path, { params: clean(query) }).then((r) => r.data),
 

@@ -218,6 +218,37 @@ export const ImageIcon = (p: IconProps) => (
   </svg>
 );
 
+export const SmileIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M8.5 14a4 4 0 0 0 7 0" />
+    <path d="M9 9.5h.01M15 9.5h.01" />
+  </svg>
+);
+
+export const MicIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="9" y="3" width="6" height="11" rx="3" />
+    <path d="M5 11a7 7 0 0 0 14 0" />
+    <path d="M12 18v3" />
+  </svg>
+);
+
+export const StickerIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6l8-8V5a2 2 0 0 0-2-2Z" />
+    <path d="M13 21v-6a2 2 0 0 1 2-2h6" />
+  </svg>
+);
+
+// Instagram's "new message" compose glyph: a square with a pencil.
+export const EditIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M20 4 8.5 15.5 7 19l3.5-1.5L22 6a1.4 1.4 0 0 0-2-2Z" />
+    <path d="M20 13.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.5" />
+  </svg>
+);
+
 export const GridIcon = (p: IconProps) => (
   <svg {...base(p)}>
     <rect x="3" y="3" width="7" height="7" />
