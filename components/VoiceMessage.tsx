@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { imageUrl } from "@/lib/config";
 import { PlayIcon, PauseIcon } from "./Icons";
 
 // A fixed set of bar heights, picked per message id so each voice note looks
@@ -95,7 +96,7 @@ export default function VoiceMessage({
       <span className="shrink-0 text-[11px] tabular-nums opacity-80">
         {clock(playing || progress > 0 ? elapsed : (durationSec ?? 0))}
       </span>
-      <audio ref={audioRef} src={src} preload="metadata" />
+      <audio ref={audioRef} src={imageUrl(src)} preload="metadata" />
     </div>
   );
 }
