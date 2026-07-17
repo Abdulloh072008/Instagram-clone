@@ -133,6 +133,17 @@ export const stickerCatalog = {
   get: (pack?: string) => extraApi.get<Envelope<StickerDto[]>>("/Sticker/get", { pack }),
 };
 
+// ---------- Comment replies / threads (extra backend) ----------
+export interface CommentReplyDto {
+  id: number; postId: number; postCommentId: number;
+  userId: string; userName: string; userImage: string | null; text: string; createdAt: string;
+}
+export const commentReplies = {
+  add: (postId: number, postCommentId: number, userId: string, userName: string, userImage: string | null, text: string) =>
+    extraApi.postJson<Envelope<CommentReplyDto>>("/CommentReply/add", { postId, postCommentId, userId, userName, userImage, text }),
+  byPost: (postId: number) => extraApi.get<Envelope<CommentReplyDto[]>>("/CommentReply/by-post", { postId }),
+};
+
 // ---------- Saved collections (extra backend) ----------
 export interface CollectionDto { id: number; userId: string; name: string; coverUrl: string | null; createdAt: string; postIds: number[] }
 
