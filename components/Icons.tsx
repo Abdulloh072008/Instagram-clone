@@ -185,6 +185,18 @@ export const CloseIcon = (p: IconProps) => (
   </svg>
 );
 
+export const ChevronLeftIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="m15 18-6-6 6-6" />
+  </svg>
+);
+
+export const ChevronRightIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="m9 18 6-6-6-6" />
+  </svg>
+);
+
 export const PhoneIcon = (p: IconProps) => (
   <svg {...base(p)}>
     <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2 4.2 2 2 0 0 1 4 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8 9.6a16 16 0 0 0 6 6l1.1-1.1a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7A2 2 0 0 1 22 16.9Z" />
@@ -203,6 +215,37 @@ export const ImageIcon = (p: IconProps) => (
     <rect x="3" y="3" width="18" height="18" rx="3" />
     <circle cx="8.5" cy="8.5" r="1.5" />
     <path d="m21 15-5-5L5 21" />
+  </svg>
+);
+
+export const SmileIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M8.5 14a4 4 0 0 0 7 0" />
+    <path d="M9 9.5h.01M15 9.5h.01" />
+  </svg>
+);
+
+export const MicIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <rect x="9" y="3" width="6" height="11" rx="3" />
+    <path d="M5 11a7 7 0 0 0 14 0" />
+    <path d="M12 18v3" />
+  </svg>
+);
+
+export const StickerIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6l8-8V5a2 2 0 0 0-2-2Z" />
+    <path d="M13 21v-6a2 2 0 0 1 2-2h6" />
+  </svg>
+);
+
+// Instagram's "new message" compose glyph: a square with a pencil.
+export const EditIcon = (p: IconProps) => (
+  <svg {...base(p)}>
+    <path d="M20 4 8.5 15.5 7 19l3.5-1.5L22 6a1.4 1.4 0 0 0-2-2Z" />
+    <path d="M20 13.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h5.5" />
   </svg>
 );
 

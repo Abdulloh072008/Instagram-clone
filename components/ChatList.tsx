@@ -1,118 +1,152 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import Avatar from "./Avatar";
-import { insta2, type I2Conversation, type I2User } from "@/lib/insta2";
+import ComposeDialog from "./ComposeDialog";
+import { chats, chatExtra, presence } from "@/lib/services";
+import { otherUser, previewText, sortByActivity, mergeThread } from "@/lib/chat";
 import { useAuth } from "@/lib/auth";
-import { timeAgo } from "@/lib/utils";
+import { parseApiDate, timeAgo } from "@/lib/utils";
+import { RowsSkeleton } from "./Skeleton";
+import { EditIcon } from "./Icons";
+import type { ChatListItem } from "@/lib/types";
 
-function OnlineDot({ online }: { online?: boolean }) {
-  if (!online) return null;
-  return (
-    <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-black bg-green-500" />
-  );
-}
+// Preview line + timestamp for a chat's latest message.
+type Preview = { text: string; date: string };
+
+// Fires when a message is sent so the inbox re-fetches its previews without a
+// timer. The conversation page dispatches it; see messages/[id]/page.tsx.
+export const CHAT_SENT_EVENT = "chat:sent";
+
+// Kept across remounts (mobile navigates list <-> thread) so the inbox paints
+// instantly from the last load, then quietly refreshes.
+let cache: { list: ChatListItem[]; previews: Record<number, Preview> } | null = null;
 
 export default function ChatList({ className = "" }: { className?: string }) {
   const { user } = useAuth();
   const params = useParams<{ id: string }>();
   const activeId = params?.id ? Number(params.id) : null;
-  const [convos, setConvos] = useState<I2Conversation[]>([]);
-  const [suggested, setSuggested] = useState<I2User[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [list, setList] = useState<ChatListItem[]>(cache?.list ?? []);
+  const [previews, setPreviews] = useState<Record<number, Preview>>(cache?.previews ?? {});
+  const [loading, setLoading] = useState(!cache);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [online, setOnline] = useState<Set<string>>(new Set());
 
+  const load = useCallback(async () => {
+    try {
+      const res = await chats.all();
+      const chatList = res.data ?? [];
+      // Both stores per chat to read its true last message — no bulk preview
+      // endpoint exists. Fanned out in parallel so it's one burst, not a chain.
+      const entries = await Promise.all(
+        chatList.map(async (c): Promise<[number, Preview] | null> => {
+          const [main, extra] = await Promise.all([
+            chats.byId(c.chatId).then((r) => r.data ?? []).catch(() => []),
+            chatExtra.get(c.chatId).then((r) => r.data ?? []).catch(() => []),
+          ]);
+          const merged = mergeThread(main, extra);
+          const last = merged[merged.length - 1];
+          if (!last) return null;
+          return [c.chatId, { text: previewText(last, user?.id), date: last.date }];
+        }),
+      );
+      const previewMap: Record<number, Preview> = {};
+      for (const e of entries) if (e) previewMap[e[0]] = e[1];
+      const activityAt: Record<number, number> = {};
+      for (const [id, p] of Object.entries(previewMap)) activityAt[Number(id)] = parseApiDate(p.date);
+      const sorted = sortByActivity(chatList, activityAt);
+      cache = { list: sorted, previews: previewMap };
+      setList(sorted);
+      setPreviews(previewMap);
+    } catch {
+      /* keep whatever was cached */
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.id]);
+
+  // Load on mount; refresh when a message is sent or the tab regains focus.
   useEffect(() => {
+    load();
+    const onSent = () => load();
+    window.addEventListener(CHAT_SENT_EVENT, onSent);
+    window.addEventListener("focus", onSent);
+    return () => {
+      window.removeEventListener(CHAT_SENT_EVENT, onSent);
+      window.removeEventListener("focus", onSent);
+    };
+  }, [load]);
+
+  // Poll online status of the people in the inbox (green dot on the avatar).
+  useEffect(() => {
+    const ids = list.map((c) => otherUser(c, user?.id).id).filter(Boolean);
+    if (ids.length === 0) return;
     let alive = true;
-    insta2.chat
-      .conversations()
-      .then((r) => alive && setConvos(r.conversations ?? []))
-      .catch(() => {})
-      .finally(() => alive && setLoading(false));
-    insta2.recommendations
-      .users()
-      .then((r) => alive && setSuggested((r.users ?? []).slice(0, 8)))
-      .catch(() => {});
+    const loadStatus = () =>
+      presence
+        .status(ids)
+        .then((r) => {
+          if (alive) setOnline(new Set((r.data ?? []).filter((p) => p.online).map((p) => p.userId)));
+        })
+        .catch(() => {});
+    loadStatus();
+    const t = setInterval(loadStatus, 20_000);
     return () => {
       alive = false;
+      clearInterval(t);
     };
-  }, []);
-
-  const existingIds = new Set(convos.map((c) => c.user?.id));
-  const startable = suggested.filter((u) => !existingIds.has(u.id));
+  }, [list, user?.id]);
 
   return (
     <div className={`flex flex-col border-r border-line ${className}`}>
       <div className="flex items-center justify-between border-b border-line px-4 py-4">
         <h2 className="text-base font-semibold">{user?.userName}</h2>
+        <button
+          onClick={() => setComposeOpen(true)}
+          aria-label="New message"
+          className="text-neutral-200 hover:text-white"
+        >
+          <EditIcon size={24} />
+        </button>
       </div>
-
       <div className="flex-1 overflow-y-auto">
-        {loading && <p className="p-4 text-sm text-neutral-500">Loading…</p>}
-
-        {convos.map((c) => {
-          const o = c.user;
-          if (!o) return null;
-          const active = o.id === activeId;
+        {loading && <RowsSkeleton />}
+        {!loading && list.length === 0 && (
+          <p className="p-4 text-sm text-neutral-500">No conversations yet</p>
+        )}
+        {list.map((chat) => {
+          const o = otherUser(chat, user?.id);
+          const active = chat.chatId === activeId;
+          const preview = previews[chat.chatId];
           return (
             <Link
-              key={c.id ?? o.id}
-              href={`/messages/${o.id}`}
+              key={chat.chatId}
+              href={`/messages/${chat.chatId}`}
               className={`flex items-center gap-3 px-4 py-2.5 transition hover:bg-neutral-900 ${
                 active ? "bg-neutral-900" : ""
               }`}
             >
               <div className="relative shrink-0">
-                <Avatar src={o.avatarUrl} name={o.fullName || o.username} size={48} />
-                <OnlineDot online={o.isOnline} />
+                <Avatar src={o.image} name={o.name} size={48} />
+                {online.has(o.id) && (
+                  <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-black bg-green-500" />
+                )}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{o.fullName || o.username}</p>
+                <p className="truncate text-sm font-medium">{o.name}</p>
                 <p className="truncate text-xs text-neutral-500">
-                  {c.lastMessage?.deleted
-                    ? "Message deleted"
-                    : c.lastMessage?.voiceUrl
-                      ? "🎤 Voice message"
-                      : c.lastMessage?.text || "Tap to chat"}
-                  {c.lastMessage?.createdAt ? ` · ${timeAgo(c.lastMessage.createdAt)}` : ""}
+                  {preview?.text ?? "No messages yet"}
+                  {preview?.date && <span className="text-neutral-600"> · {timeAgo(preview.date)}</span>}
                 </p>
               </div>
-              {!!c.unread && c.unread > 0 && (
-                <span className="ml-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-ig-blue px-1.5 text-[11px] font-bold text-white">
-                  {c.unread}
-                </span>
-              )}
             </Link>
           );
         })}
-
-        {!loading && startable.length > 0 && (
-          <>
-            <p className="px-4 pb-1 pt-4 text-xs font-semibold text-neutral-500">Suggested</p>
-            {startable.map((u) => (
-              <Link
-                key={u.id}
-                href={`/messages/${u.id}`}
-                className="flex items-center gap-3 px-4 py-2 transition hover:bg-neutral-900"
-              >
-                <div className="relative shrink-0">
-                  <Avatar src={u.avatarUrl} name={u.fullName || u.username} size={44} />
-                  <OnlineDot online={u.isOnline} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{u.fullName || u.username}</p>
-                  <p className="truncate text-xs text-neutral-500">@{u.username}</p>
-                </div>
-              </Link>
-            ))}
-          </>
-        )}
-
-        {!loading && convos.length === 0 && startable.length === 0 && (
-          <p className="p-4 text-sm text-neutral-500">No conversations yet</p>
-        )}
       </div>
+
+      {composeOpen && <ComposeDialog onClose={() => setComposeOpen(false)} />}
     </div>
   );
 }

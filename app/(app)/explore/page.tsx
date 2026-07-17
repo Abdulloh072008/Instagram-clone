@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import PostGrid from "@/components/PostGrid";
+import { GridSkeleton, RowsSkeleton } from "@/components/Skeleton";
 import { posts as postsApi, users } from "@/lib/services";
 import type { Post, UserListItem } from "@/lib/types";
 import { SearchIcon } from "@/components/Icons";
@@ -13,6 +14,7 @@ export default function ExplorePage() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<UserListItem[]>([]);
   const [explore, setExplore] = useState<Post[]>([]);
+  const [loadingGrid, setLoadingGrid] = useState(true);
   const [searching, setSearching] = useState(false);
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -21,7 +23,8 @@ export default function ExplorePage() {
     postsApi
       .feed(1, 30)
       .then((res) => setExplore(res.data ?? []))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoadingGrid(false));
   }, []);
 
   // Debounced user search.
@@ -58,7 +61,7 @@ export default function ExplorePage() {
 
       {query.trim() ? (
         <div className="px-2">
-          {searching && <p className="py-4 text-sm text-neutral-500">Searching…</p>}
+          {searching && <RowsSkeleton count={6} className="-mx-2" />}
           {!searching && results.length === 0 && (
             <p className="py-4 text-sm text-neutral-500">No users found</p>
           )}
@@ -80,6 +83,10 @@ export default function ExplorePage() {
             ))}
           </div>
         </div>
+      ) : loadingGrid ? (
+        <GridSkeleton />
+      ) : explore.length === 0 ? (
+        <p className="py-20 text-center text-sm text-neutral-500">Nothing to explore yet</p>
       ) : (
         <PostGrid posts={explore} />
       )}

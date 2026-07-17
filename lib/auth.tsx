@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { signOut as endGoogleSession } from "next-auth/react";
 import { api, getToken, setToken, clearToken } from "./client";
 import { profiles } from "./services";
 import { ensureInsta2Session, clearInsta2 } from "./insta2";
@@ -95,6 +96,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearToken();
     clearInsta2();
     setUser(null);
+    // Выход должен быть настоящим: гасим и Google-сессию, иначе мостик на /login
+    // тут же залогинит обратно. Флаг подстраховывает от гонки, пока сессия гаснет.
+    try {
+      sessionStorage.setItem("skipGoogleBridge", "1");
+    } catch {}
+    endGoogleSession({ redirect: false }).catch(() => {});
     router.push("/login");
   }, [router]);
 

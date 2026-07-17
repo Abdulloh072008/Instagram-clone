@@ -86,16 +86,54 @@ export interface UserListItem {
   userName: string;
 }
 
+/**
+ * Item from /FollowingRelationShip/get-subscribers|get-subscriptions.
+ * Verified against the live API: `id` is the RELATIONSHIP id (e.g. 5834), not
+ * the user — the user lives in userShortInfo. Reading `id` as a user id matches
+ * nobody.
+ */
+export interface FollowListItem {
+  id: number;
+  userShortInfo: {
+    userId: string;
+    userName: string;
+    userPhoto: string;
+    fullname: string;
+  };
+}
+
 export interface StoryItem {
   storyId?: number;
   id?: number;
+  postId?: number;
   fileName?: string;
   image?: string;
   createAt?: string;
   dateCreated?: string;
   storyView?: number;
   storyLike?: boolean;
+  // --- extra backend (/StoryExtra) ---
+  mediaUrl?: string; // rooted path, e.g. "/uploads/x.png"
+  type?: "image" | "video";
+  caption?: string;
+  createdAt?: string;
+  expiresAt?: string;
   [key: string]: unknown;
+}
+
+/** /StoryInteract/get-reactions — emoji tallies plus the caller's own pick. */
+export interface StoryReactions {
+  total: number;
+  summary: { emoji: string; count: number }[];
+  mine: string | null;
+  reactions: {
+    id: number;
+    storyId: number;
+    userId: string;
+    userName: string;
+    emoji: string;
+    createdAt: string;
+  }[];
 }
 
 export interface UserStories {
@@ -126,6 +164,90 @@ export interface ChatMessage {
   messageText: string;
   sendMassageDate: string;
   file: string | null;
+}
+
+// Message from the extra backend's parallel store (/ChatExtra/get). No JWT, so
+// the sender travels explicitly; carries the types the main store can't hold.
+// Note: createdAt comes back WITHOUT a trailing Z — always parseApiDate it.
+export interface ExtraMessage {
+  id: number;
+  chatId: number;
+  senderId: string;
+  senderName: string;
+  type: string;
+  text: string | null;
+  mediaUrl: string | null;
+  fileName: string | null;
+  durationSec: number | null;
+  createdAt: string;
+}
+
+// What a message can be, once the two stores are merged. These are exactly the
+// types the ChatExtra store accepts — it silently rewrites anything else to
+// "text", which is why read receipts ride a sentinel text value, not a type.
+export type MessageKind = "text" | "image" | "gif" | "voice" | "sticker";
+
+/**
+ * One thread item, normalized from either store so the UI treats them alike.
+ * `store` + `id` say where it really lives (for delete/react); `key` is a
+ * React key unique across both stores; `at` is the parsed epoch-ms for sorting.
+ */
+export interface UnifiedMessage {
+  key: string;
+  store: "main" | "extra";
+  id: number;
+  userId: string;
+  userName: string;
+  userImage: string | null;
+  text: string;
+  file: string | null;
+  kind: MessageKind;
+  at: number;
+  date: string;
+  durationSec: number | null;
+  sending?: boolean;
+}
+
+// /MessageReaction/get — same tally shape the story reactions use.
+export interface MessageReactions {
+  total: number;
+  summary: { emoji: string; count: number }[];
+  mine: string | null;
+  reactions: { id: number; messageId: number; userId: string; userName: string; emoji: string; createdAt: string }[];
+}
+
+// /Gif/search|trending — Giphy-backed.
+export interface GifItem {
+  id: string;
+  url: string;
+  preview: string;
+  title: string;
+  width: number;
+  height: number;
+}
+
+// /Call/* (extra backend). The API carries call state and WebRTC signaling;
+// the media itself rides a peer connection negotiated over /Call/send-signal.
+export type CallType = "audio" | "video";
+export type CallStatus = "ringing" | "accepted" | "declined" | "ended";
+export interface CallInfo {
+  id: number;
+  callerId: string;
+  callerName: string;
+  calleeId: string;
+  calleeName: string;
+  type: CallType;
+  status: CallStatus;
+  createdAt: string;
+  endedAt: string | null;
+}
+export interface CallSignal {
+  id: number;
+  callId: number;
+  fromUserId: string;
+  kind: string; // "offer" | "answer" | "ice"
+  payload: string; // JSON-encoded SDP or ICE candidate
+  createdAt: string;
 }
 
 export type NotificationType = "like" | "comment" | "follow" | "mention";

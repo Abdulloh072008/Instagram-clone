@@ -41,6 +41,10 @@ body {
 .story-ring {
   background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888);
 }
+/* Already-watched story: muted grey ring */
+.story-ring-seen {
+  background: #363636;
+}
 
 /* Thin, subtle scrollbars that match the dark UI */
 * {
@@ -87,4 +91,79 @@ body {
 }
 .animate-slide-right {
   animation: ig-slide-right 0.28s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Story reaction: the tapped emoji flies up the screen and fades.
+   --dx / --spin are set per particle so a burst doesn't move as one blob. */
+@keyframes ig-react-fly {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) scale(0.4) rotate(0deg);
+  }
+  15% {
+    opacity: 1;
+    transform: translate(0, -10%) scale(1.15) rotate(0deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--dx, 0), -85vh) scale(0.7) rotate(var(--spin, 0deg));
+  }
+}
+.animate-react-fly {
+  animation: ig-react-fly 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* The button you just pressed gives a quick squash-and-pop. */
+@keyframes ig-react-pop {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(0.82);
+  }
+  70% {
+    transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.animate-react-pop {
+  animation: ig-react-pop 0.45s ease-out;
+}
+
+/* Voice note: while playing, the bars ripple like a live equalizer.
+   Each bar gets a staggered animation-delay (set inline) so they wave in
+   sequence rather than pulsing as one block. */
+@keyframes ig-voice-bar {
+  0%,
+  100% {
+    transform: scaleY(0.55);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.animate-voice-bar {
+  animation: ig-voice-bar 0.9s ease-in-out infinite;
+}
+
+/* Settings gear: spins continuously while its button is hovered. */
+@keyframes ig-gear-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.gear-btn:hover .gear-ico {
+  animation: ig-gear-spin 1.4s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-react-fly,
+  .animate-react-pop,
+  .animate-voice-bar,
+  .gear-btn:hover .gear-ico {
+    animation-duration: 0.01ms;
+    animation-iteration-count: 1;
+  }
 }

@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { posts as postsApi } from "@/lib/services";
+import { toast } from "@/lib/toast";
 import { ImageIcon, VideoIcon, CloseIcon } from "@/components/Icons";
 
 export default function CreatePage() {
@@ -42,6 +43,7 @@ export default function CreatePage() {
     }
     try {
       await postsApi.create(title, content, files);
+      toast("Post shared", "ok");
       router.push("/profile");
     } catch (err) {
       setError("root", { message: err instanceof Error ? err.message : "Failed to create post" });

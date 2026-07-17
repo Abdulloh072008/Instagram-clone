@@ -8,7 +8,8 @@ interface AvatarProps {
   src?: string | null;
   name?: string | null;
   size?: number;
-  ring?: boolean;
+  /** false = no ring, true = unseen gradient ring, "seen" = grey ring. */
+  ring?: boolean | "seen";
   className?: string;
 }
 
@@ -44,7 +45,10 @@ export default function Avatar({ src, name, size = 40, ring = false, className =
   if (!ring) return inner;
 
   return (
-    <div className="story-ring rounded-full p-[2px]" style={{ width: size + 6, height: size + 6 }}>
+    <div
+      className={`${ring === "seen" ? "story-ring-seen" : "story-ring"} rounded-full p-[2px]`}
+      style={{ width: size + 6, height: size + 6 }}
+    >
       <div className="rounded-full bg-black p-[2px]">{inner}</div>
     </div>
   );
