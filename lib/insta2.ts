@@ -119,7 +119,7 @@ export interface I2Message {
   deleted?: boolean;
   seenAt?: string | null;
   status?: string;
-  reactions?: Record<string, number[]>; // emoji -> [userId]
+  reactions?: Record<string, number>; // emoji -> count
   createdAt?: string;
   [k: string]: unknown;
 }
