@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
+import Skeleton from "@/components/Skeleton";
+import { toast } from "@/lib/toast";
 import { profiles } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import type { UserProfile } from "@/lib/types";
@@ -14,7 +16,6 @@ export default function EditProfilePage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [msg, setMsg] = useState("");
   const {
     register,
     handleSubmit,
@@ -39,26 +40,40 @@ export default function EditProfilePage() {
       const p = await profiles.me();
       setProfile(p.data);
       setUserImage(p.data.image);
+      toast("Photo updated", "ok");
     } catch {
-      setMsg("Image upload failed");
+      setPreview(null); // drop the preview so the avatar matches what's saved
+      toast("Couldn't upload that photo");
     }
   }
 
   const save = handleSubmit(async ({ about, gender }) => {
-    setMsg("");
     try {
       await profiles.update(about, Number(gender));
-      setMsg("Saved ✓");
-      setTimeout(() => router.push("/profile"), 600);
+      toast("Profile saved", "ok");
+      router.push("/profile");
     } catch {
-      setMsg("Save failed");
+      toast("Couldn't save your profile");
     }
   });
 
   if (!profile) {
     return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <div className="h-7 w-7 animate-spin rounded-full border-2 border-neutral-700 border-t-white" />
+      <div className="mx-auto max-w-xl px-4 py-8">
+        <Skeleton className="mb-6 h-6 w-40" />
+        <div className="mb-8 flex items-center gap-4">
+          <Skeleton className="h-16 w-16 rounded-full" />
+          <Skeleton className="h-3 w-28" />
+        </div>
+        <div className="flex flex-col gap-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex flex-col gap-2">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+            </div>
+          ))}
+          <Skeleton className="h-10 w-32 rounded-lg" />
+        </div>
       </div>
     );
   }
@@ -112,7 +127,6 @@ export default function EditProfilePage() {
         >
           {isSubmitting ? "Saving…" : "Submit"}
         </button>
-        {msg && <span className="text-sm text-neutral-400">{msg}</span>}
       </div>
 
       <p className="mt-6 text-xs text-neutral-600">

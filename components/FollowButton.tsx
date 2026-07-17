@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { follows } from "@/lib/services";
+import { toast } from "@/lib/toast";
 
 export default function FollowButton({
   userId,
@@ -28,6 +29,7 @@ export default function FollowButton({
       onChange?.(next);
     } catch {
       setFollowing(!next);
+      toast(next ? "Couldn't follow them" : "Couldn't unfollow them");
     } finally {
       setBusy(false);
     }

@@ -6,18 +6,24 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import Img from "@/components/Img";
+import Skeleton from "@/components/Skeleton";
+import { toast } from "@/lib/toast";
 import { chats } from "@/lib/services";
-import { otherUser } from "@/components/ChatList";
+import { otherUser } from "@/lib/chat";
 import { useAuth } from "@/lib/auth";
 import { timeAgo } from "@/lib/utils";
 import type { ChatMessage } from "@/lib/types";
 import { BackIcon, PhoneIcon, VideoIcon, ImageIcon, ShareIcon } from "@/components/Icons";
+
+// Uneven widths so the loading thread reads as chat rather than a stack of bars.
+const BUBBLE_WIDTHS = ["w-40", "w-28", "w-52", "w-36", "w-24", "w-44", "w-32"];
 
 export default function ConversationPage() {
   const params = useParams<{ id: string }>();
   const chatId = Number(params.id);
   const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [loading, setLoading] = useState(true);
   const [peer, setPeer] = useState<{ id: string; name: string; image: string | null } | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -36,6 +42,8 @@ export default function ConversationPage() {
       setMessages(res.data ?? []);
     } catch {
       /* ignore */
+    } finally {
+      setLoading(false);
     }
   }, [chatId]);
 
@@ -69,7 +77,7 @@ export default function ConversationPage() {
       setFile(null);
       await loadMessages();
     } catch {
-      /* ignore */
+      toast("Couldn't send your message");
     }
   });
 
@@ -94,7 +102,13 @@ export default function ConversationPage() {
 
       {/* messages */}
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-4">
-        {messages.length === 0 && (
+        {loading &&
+          BUBBLE_WIDTHS.map((w, i) => (
+            <div key={i} className={`flex ${i % 2 ? "justify-end" : "justify-start"}`}>
+              <Skeleton className={`h-9 rounded-2xl ${w}`} />
+            </div>
+          ))}
+        {!loading && messages.length === 0 && (
           <p className="my-auto text-center text-sm text-neutral-500">
             No messages yet. Say hi 👋
           </p>

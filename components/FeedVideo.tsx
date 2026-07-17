@@ -13,7 +13,8 @@ export default function FeedVideo({ src, className = "" }: { src: string; classN
   function toggle() {
     const v = ref.current;
     if (!v) return;
-    if (v.paused) v.play();
+    // play() rejects (NotSupportedError/NotAllowedError) on undecodable sources — not an app error.
+    if (v.paused) v.play().catch(() => {});
     else v.pause();
   }
 

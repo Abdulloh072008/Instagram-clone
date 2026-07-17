@@ -3,26 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Avatar from "./Avatar";
 import StoryViewer from "./StoryViewer";
-import { stories as storiesApi } from "@/lib/services";
+import { stories as storiesApi, follows } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
-import { loadSeen, saveSeen, storyKey } from "@/lib/seenStories";
+import { loadSeen, saveSeen, storyKey, freshStories, followedStories } from "@/lib/seenStories";
+import { StoriesBarSkeleton } from "./Skeleton";
+import { toast } from "@/lib/toast";
 import type { UserStories } from "@/lib/types";
 import { PlusIcon } from "./Icons";
-
-// Stories expire 24h after they're posted. Filtered at fetch time (not render) so
-// the clock read stays out of the render path.
-function freshStories(groups: UserStories[]): UserStories[] {
-  const cutoff = Date.now() - 24 * 3600 * 1000;
-  return groups
-    .map((g) => ({
-      ...g,
-      stories: g.stories.filter((s) => {
-        const t = Date.parse(s.createAt ?? s.dateCreated ?? "");
-        return Number.isNaN(t) || t >= cutoff;
-      }),
-    }))
-    .filter((g) => g.stories.length > 0);
-}
 
 export default function StoriesBar() {
   const { user } = useAuth();
@@ -30,19 +17,43 @@ export default function StoriesBar() {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [seen, setSeen] = useState<Set<number>>(new Set());
   const [uploading, setUploading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => setSeen(loadSeen()), []);
 
-  const load = () =>
-    storiesApi
-      .all()
-      .then((res) => setGroups(freshStories(Array.isArray(res) ? res : [])))
-      .catch(() => setGroups([]));
+  // Re-run after an upload too; loading is already false by then, so no reflash.
+  // The feed isn't filtered server-side, so it's paired with the follow list and
+  // narrowed here. If the follow list can't be fetched we fall back to your own
+  // stories only — showing strangers' would be the worse way to be wrong.
+  const load = useCallback(() => {
+    if (!user) return;
+    return Promise.all([
+      storiesApi.all(),
+      follows
+        .subscriptions(user.id)
+        .then((r) => r.data ?? [])
+        .catch(() => []),
+    ])
+      .then(([feed, following]) =>
+        setGroups(
+          freshStories(
+            followedStories(
+              feed,
+              // Both id spellings — see FollowListItem for why this is unsettled.
+              following.map((u) => u.userShortInfo?.userId ?? String(u.id ?? "")),
+              user.id,
+            ),
+          ),
+        ),
+      )
+      .catch(() => setGroups([]))
+      .finally(() => setLoading(false));
+  }, [user]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   // Stable identity so StoryViewer's mark-seen effect only fires on story change.
   const markSeen = useCallback((id: number) => {
@@ -66,17 +77,20 @@ export default function StoriesBar() {
   const onPickFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     e.target.value = "";
-    if (!files.length) return;
+    if (!files.length || !user) return;
     setUploading(true);
     try {
-      for (const file of files) await storiesApi.add(file); // one call per file — API takes a single file
+      for (const file of files) await storiesApi.add(user, file); // one call per file — API takes a single file
       await load();
+      toast(files.length > 1 ? "Stories added" : "Story added", "ok");
     } catch {
-      /* ignore */
+      toast("Couldn't upload your story");
     } finally {
       setUploading(false);
     }
   };
+
+  if (loading) return <StoriesBarSkeleton />;
 
   return (
     <>
@@ -87,11 +101,8 @@ export default function StoriesBar() {
           disabled={uploading}
           className="flex w-16 shrink-0 flex-col items-center gap-1"
         >
-          <div className="relative">
-            <Avatar src={user?.image} name={user?.userName} size={58} />
-            <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-black bg-ig-blue">
-              <PlusIcon size={12} />
-            </span>
+          <div className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-neutral-800 text-neutral-200 transition hover:bg-neutral-700">
+            <PlusIcon size={26} />
           </div>
           <span className="w-full truncate text-center text-xs text-neutral-400">
             {uploading ? "Adding…" : "Your story"}

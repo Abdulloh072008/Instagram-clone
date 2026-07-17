@@ -5,6 +5,7 @@ import Link from "next/link";
 import Avatar from "./Avatar";
 import Img from "./Img";
 import FollowButton from "./FollowButton";
+import { RowsSkeleton } from "./Skeleton";
 import { notifications as notifApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import { timeAgo } from "@/lib/utils";
@@ -56,11 +57,7 @@ export default function NotificationsPanel({ onNavigate }: { onNavigate: () => v
       <h2 className="px-6 pb-4 pt-6 text-2xl font-semibold">Notifications</h2>
 
       <div className="flex-1 overflow-y-auto border-t border-line">
-        {loading && (
-          <div className="flex justify-center py-12">
-            <div className="h-6 w-6 animate-spin rounded-full border-2 border-neutral-700 border-t-white" />
-          </div>
-        )}
+        {loading && <RowsSkeleton count={7} className="py-2" />}
 
         {!loading && items.length === 0 && (
           <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">

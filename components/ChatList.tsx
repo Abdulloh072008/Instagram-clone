@@ -5,17 +5,10 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import Avatar from "./Avatar";
 import { chats } from "@/lib/services";
+import { otherUser } from "@/lib/chat";
 import { useAuth } from "@/lib/auth";
+import { RowsSkeleton } from "./Skeleton";
 import type { ChatListItem } from "@/lib/types";
-
-export function otherUser(chat: ChatListItem, myId?: string) {
-  const iAmSender = chat.sendUserId === myId;
-  return {
-    id: iAmSender ? chat.receiveUserId : chat.sendUserId,
-    name: iAmSender ? chat.receiveUserName : chat.sendUserName,
-    image: iAmSender ? chat.receiveUserImage : chat.sendUserImage,
-  };
-}
 
 export default function ChatList({ className = "" }: { className?: string }) {
   const { user } = useAuth();
@@ -38,7 +31,7 @@ export default function ChatList({ className = "" }: { className?: string }) {
         <h2 className="text-base font-semibold">{user?.userName}</h2>
       </div>
       <div className="flex-1 overflow-y-auto">
-        {loading && <p className="p-4 text-sm text-neutral-500">Loading…</p>}
+        {loading && <RowsSkeleton />}
         {!loading && list.length === 0 && (
           <p className="p-4 text-sm text-neutral-500">No conversations yet</p>
         )}

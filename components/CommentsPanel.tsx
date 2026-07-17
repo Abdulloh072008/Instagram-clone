@@ -5,6 +5,7 @@ import Link from "next/link";
 import Avatar from "./Avatar";
 import { timeAgo } from "@/lib/utils";
 import { posts as postsApi, profiles } from "@/lib/services";
+import { toast } from "@/lib/toast";
 import { useAuth } from "@/lib/auth";
 import type { PostComment } from "@/lib/types";
 import { CloseIcon } from "./Icons";
@@ -96,6 +97,7 @@ export default function CommentsPanel({
       await postsApi.addComment(postId, text);
     } catch {
       setComments((c) => c.filter((x) => x.postCommentId !== temp.postCommentId));
+      toast("Couldn't post your comment");
     } finally {
       setSending(false);
     }
