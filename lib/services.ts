@@ -237,6 +237,8 @@ export const chats = {
     if (file) form.append("File", file);
     return api.putForm("/Chat/send-message", form);
   },
-  deleteMessage: (messageId: number) => api.del("/Chat/delete-message", { messageId }),
+  // The backend misspells the query param as `massageId`; sending `messageId`
+  // is silently ignored and nothing gets deleted. Verified against the live spec.
+  deleteMessage: (messageId: number) => api.del("/Chat/delete-message", { massageId: messageId }),
   deleteChat: (chatId: number) => api.del("/Chat/delete-chat", { chatId }),
 };
