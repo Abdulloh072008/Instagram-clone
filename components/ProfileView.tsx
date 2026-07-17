@@ -7,6 +7,7 @@ import Avatar from "./Avatar";
 import PostGrid from "./PostGrid";
 import FollowButton from "./FollowButton";
 import ProfileActions from "./ProfileActions";
+import Highlights from "./Highlights";
 import { chats, reposts as repostsApi, posts as postsApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import { formatCount } from "@/lib/utils";
@@ -157,6 +158,9 @@ export default function ProfileView({
           </div>
         </div>
       </header>
+
+      {/* highlights */}
+      <Highlights userId={userId} isMe={isMe} />
 
       {/* tabs */}
       <div className="flex justify-center gap-12 border-b border-line">

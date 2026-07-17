@@ -133,6 +133,17 @@ export const stickerCatalog = {
   get: (pack?: string) => extraApi.get<Envelope<StickerDto[]>>("/Sticker/get", { pack }),
 };
 
+// ---------- Highlights (extra backend) — pinned story collections ----------
+export interface HighlightItemDto { id: number; highlightId: number; mediaUrl: string; type: string; createdAt: string }
+export interface HighlightDto { id: number; userId: string; title: string; coverUrl: string | null; createdAt: string; items: HighlightItemDto[] }
+
+export const highlights = {
+  create: (userId: string, title: string, items: { mediaUrl: string; type: string }[], coverUrl?: string) =>
+    extraApi.postJson<Envelope<HighlightDto>>("/Highlight/create", { userId, title, coverUrl, items }),
+  byUser: (userId: string) => extraApi.get<Envelope<HighlightDto[]>>("/Highlight/by-user", { userId }),
+  delete: (id: number) => extraApi.del("/Highlight/delete", { id }),
+};
+
 // ---------- Blocks / reports (extra backend) ----------
 export const blocks = {
   add: (userId: string, blockedUserId: string) => extraApi.postJson("/Block/add", undefined, { userId, blockedUserId }),
