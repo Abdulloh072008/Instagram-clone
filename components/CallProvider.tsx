@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import Avatar from "./Avatar";
 import { calls } from "@/lib/services";
+import { createRingtone } from "@/lib/ringtone";
 import { useAuth } from "@/lib/auth";
 import { PhoneIcon, VideoIcon, MicIcon } from "./Icons";
 import type { CallInfo, CallType } from "@/lib/types";
@@ -43,6 +44,7 @@ export default function CallProvider({ children }: { children: React.ReactNode }
   const stateTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const ringRef = useRef<ReturnType<typeof createRingtone> | null>(null);
 
   const teardown = useCallback(() => {
     if (sigTimer.current) clearInterval(sigTimer.current);
@@ -231,6 +233,15 @@ export default function CallProvider({ children }: { children: React.ReactNode }
       clearInterval(t);
     };
   }, [user, phase]);
+
+  // Ring while a call is being established, stop once connected or over.
+  useEffect(() => {
+    ringRef.current ??= createRingtone();
+    const ring = ringRef.current;
+    if (phase === "incoming" || phase === "outgoing") ring.start();
+    else ring.stop();
+    return () => ring.stop();
+  }, [phase]);
 
   // Tear the call down if the tab closes mid-call.
   useEffect(() => {

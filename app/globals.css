@@ -132,9 +132,26 @@ body {
   animation: ig-react-pop 0.45s ease-out;
 }
 
+/* Voice note: while playing, the bars ripple like a live equalizer.
+   Each bar gets a staggered animation-delay (set inline) so they wave in
+   sequence rather than pulsing as one block. */
+@keyframes ig-voice-bar {
+  0%,
+  100% {
+    transform: scaleY(0.55);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+.animate-voice-bar {
+  animation: ig-voice-bar 0.9s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-react-fly,
-  .animate-react-pop {
+  .animate-react-pop,
+  .animate-voice-bar {
     animation-duration: 0.01ms;
     animation-iteration-count: 1;
   }

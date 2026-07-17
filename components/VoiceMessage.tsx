@@ -43,37 +43,52 @@ export default function VoiceMessage({
   const [elapsed, setElapsed] = useState(0);
   const shape = bars(seed);
 
+  // Sync play/pause state from the element itself, so it stays correct however
+  // playback starts or stops.
   useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
-    const onTime = () => {
-      const total = a.duration || durationSec || 0;
-      setElapsed(a.currentTime);
-      setProgress(total ? a.currentTime / total : 0);
-    };
+    const onPlay = () => setPlaying(true);
+    const onPause = () => setPlaying(false);
     const onEnd = () => {
       setPlaying(false);
       setProgress(0);
       setElapsed(0);
     };
-    a.addEventListener("timeupdate", onTime);
+    a.addEventListener("play", onPlay);
+    a.addEventListener("pause", onPause);
     a.addEventListener("ended", onEnd);
     return () => {
-      a.removeEventListener("timeupdate", onTime);
+      a.removeEventListener("play", onPlay);
+      a.removeEventListener("pause", onPause);
       a.removeEventListener("ended", onEnd);
     };
-  }, [durationSec]);
+  }, []);
+
+  // Drive the progress fill from requestAnimationFrame while playing, not from
+  // the `timeupdate` event (which fires ~4x/sec and makes the fill step). This
+  // is what keeps the waveform gliding instead of skipping.
+  useEffect(() => {
+    if (!playing) return;
+    let id = 0;
+    const loop = () => {
+      const a = audioRef.current;
+      if (a) {
+        const total = a.duration || durationSec || 0;
+        setElapsed(a.currentTime);
+        setProgress(total ? Math.min(1, a.currentTime / total) : 0);
+      }
+      id = requestAnimationFrame(loop);
+    };
+    id = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(id);
+  }, [playing, durationSec]);
 
   function toggle() {
     const a = audioRef.current;
     if (!a) return;
-    if (a.paused) {
-      a.play();
-      setPlaying(true);
-    } else {
-      a.pause();
-      setPlaying(false);
-    }
+    if (a.paused) a.play();
+    else a.pause();
   }
 
   const filled = mine ? "bg-white" : "bg-ig-blue";
@@ -88,8 +103,14 @@ export default function VoiceMessage({
         {shape.map((h, i) => (
           <span
             key={i}
-            className={`w-[3px] rounded-full ${i / BAR_COUNT <= progress ? filled : empty}`}
-            style={{ height: `${Math.round(h * 100)}%` }}
+            className={`w-[3px] origin-center rounded-full ${
+              i / BAR_COUNT <= progress ? filled : empty
+            } ${playing ? "animate-voice-bar" : ""}`}
+            style={{
+              height: `${Math.round(h * 100)}%`,
+              // Stagger the ripple across the bars while playing.
+              animationDelay: playing ? `${(i % 8) * 0.08}s` : undefined,
+            }}
           />
         ))}
       </div>
