@@ -305,8 +305,10 @@ export const gifs = {
     extraApi.get<Envelope<GifItem[]>>("/Gif/search", { q, limit, offset }),
 };
 
+// In this backend a "sticker" is a big emoji: `url` is the emoji glyph itself,
+// not an image address. MessageBubble renders it as large text accordingly.
 export const stickers = {
   packs: () => extraApi.get<Envelope<string[]>>("/Sticker/packs"),
   get: (pack: string) =>
-    extraApi.get<Envelope<{ id: string; pack: string; name: string; url: string }[]>>("/Sticker/get", { pack }),
+    extraApi.get<Envelope<{ id: number; pack: string; name: string; url: string }[]>>("/Sticker/get", { pack }),
 };

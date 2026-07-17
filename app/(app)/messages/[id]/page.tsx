@@ -1,19 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
-import { useForm } from "react-hook-form";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import Skeleton from "@/components/Skeleton";
 import MessageBubble from "@/components/MessageBubble";
+import Composer from "@/components/Composer";
 import { toast } from "@/lib/toast";
 import { chats, chatExtra } from "@/lib/services";
 import { otherUser, isNearBottom, threadChanged, buildThread, mergeThread } from "@/lib/chat";
 import { CHAT_SENT_EVENT } from "@/components/ChatList";
 import { useAuth } from "@/lib/auth";
-import type { ChatMessage, ExtraMessage, UnifiedMessage } from "@/lib/types";
-import { BackIcon, PhoneIcon, VideoIcon, ImageIcon, ShareIcon } from "@/components/Icons";
+import type { ChatMessage, ExtraMessage, GifItem, MessageKind, UnifiedMessage } from "@/lib/types";
+import { BackIcon, PhoneIcon, VideoIcon } from "@/components/Icons";
 
 // Uneven widths so the loading thread reads as chat rather than a stack of bars.
 const BUBBLE_WIDTHS = ["w-40", "w-28", "w-52", "w-36", "w-24", "w-44", "w-32"];
@@ -25,24 +25,15 @@ export default function ConversationPage() {
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [peer, setPeer] = useState<{ id: string; name: string; image: string | null } | null>(null);
-  const [file, setFile] = useState<File | null>(null);
   // Optimistic messages shown before the server confirms them. Negative id
   // marks them as still sending and keeps them from colliding with real ids.
   // Kept apart from `messages` so the 5s poll can't wipe them.
   const [pending, setPending] = useState<UnifiedMessage[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
   // First paint jumps to the bottom instantly; later updates only follow if you
   // were already there. Without this the 5s poll yanks you down mid-scroll.
   const firstPaintRef = useRef(true);
-  const {
-    register,
-    handleSubmit,
-    watch,
-    reset,
-    formState: { isSubmitting },
-  } = useForm<{ text: string }>({ defaultValues: { text: "" } });
 
   const rows = useMemo(
     () => buildThread([...messages, ...pending], user?.id),
@@ -111,42 +102,95 @@ export default function ConversationPage() {
     if (pending.length) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [pending.length]);
 
-  const send = handleSubmit(async ({ text }) => {
-    const body = text.trim();
-    if (!body && !file) return;
-    const sentFile = file;
-    const tempId = -Date.now();
-    const optimistic: UnifiedMessage = {
-      key: `m${tempId}`,
-      store: "main",
-      id: tempId,
-      userId: user?.id ?? "",
-      userName: user?.userName ?? "",
-      userImage: user?.image ?? null,
-      text: body,
-      file: sentFile ? URL.createObjectURL(sentFile) : null,
-      kind: sentFile ? "image" : "text",
-      at: Date.now(),
-      date: new Date().toISOString(),
-      durationSec: null,
-      sending: true,
-    };
-    // Show it immediately, clear the composer.
-    setPending((p) => [...p, optimistic]);
-    reset();
-    setFile(null);
-    try {
-      await chats.send(chatId, body, sentFile ?? undefined);
-      await loadMessages();
-      window.dispatchEvent(new Event(CHAT_SENT_EVENT)); // nudge the inbox to re-sort
-    } catch {
-      toast("Couldn't send your message");
-      reset({ text: body }); // put their words back so nothing is lost
-      setFile(sentFile);
-    } finally {
-      setPending((p) => p.filter((m) => m.id !== tempId));
-    }
-  });
+  // Show an optimistic bubble, run the send, then reconcile: on success reload
+  // (which replaces the temp with the real message) and nudge the inbox; on
+  // failure toast and drop the temp. Shared by every send path below.
+  const dispatchSend = useCallback(
+    (optimistic: UnifiedMessage, send: Promise<unknown>, failMsg: string) => {
+      setPending((p) => [...p, optimistic]);
+      (async () => {
+        try {
+          await send;
+          await loadMessages();
+          window.dispatchEvent(new Event(CHAT_SENT_EVENT));
+        } catch {
+          toast(failMsg);
+        } finally {
+          setPending((p) => p.filter((m) => m.id !== optimistic.id));
+        }
+      })();
+    },
+    [loadMessages],
+  );
+
+  // Build an optimistic message for the current user. `store` follows the kind:
+  // text/image live in main /Chat, everything else in the ChatExtra store.
+  const optimisticFor = useCallback(
+    (kind: MessageKind, patch: Partial<UnifiedMessage>): UnifiedMessage => {
+      const tempId = -Date.now();
+      return {
+        key: `t${tempId}`,
+        store: kind === "text" || kind === "image" ? "main" : "extra",
+        id: tempId,
+        userId: user?.id ?? "",
+        userName: user?.userName ?? "",
+        userImage: user?.image ?? null,
+        text: "",
+        file: null,
+        kind,
+        at: Date.now(),
+        date: new Date().toISOString(),
+        durationSec: null,
+        sending: true,
+        ...patch,
+      };
+    },
+    [user],
+  );
+
+  const sendText = useCallback(
+    (text: string, file: File | null) => {
+      if (!user || (!text && !file)) return;
+      const opt = optimisticFor(file ? "image" : "text", {
+        text,
+        file: file ? URL.createObjectURL(file) : null,
+      });
+      dispatchSend(opt, chats.send(chatId, text, file ?? undefined), "Couldn't send your message");
+    },
+    [user, chatId, optimisticFor, dispatchSend],
+  );
+
+  const sendGif = useCallback(
+    (gif: GifItem) => {
+      if (!user) return;
+      const opt = optimisticFor("gif", { file: gif.url });
+      dispatchSend(opt, chatExtra.send(chatId, user, "gif", { mediaUrl: gif.url }), "Couldn't send GIF");
+    },
+    [user, chatId, optimisticFor, dispatchSend],
+  );
+
+  const sendSticker = useCallback(
+    (url: string) => {
+      if (!user) return;
+      const opt = optimisticFor("sticker", { file: url });
+      dispatchSend(opt, chatExtra.send(chatId, user, "sticker", { mediaUrl: url }), "Couldn't send sticker");
+    },
+    [user, chatId, optimisticFor, dispatchSend],
+  );
+
+  const sendVoice = useCallback(
+    (blob: Blob, seconds: number) => {
+      if (!user) return;
+      const file = new File([blob], `voice-${Date.now()}.webm`, { type: blob.type || "audio/webm" });
+      const opt = optimisticFor("voice", { file: URL.createObjectURL(blob), durationSec: seconds });
+      dispatchSend(
+        opt,
+        chatExtra.sendFile(chatId, user, "voice", file, seconds),
+        "Couldn't send voice message",
+      );
+    },
+    [user, chatId, optimisticFor, dispatchSend],
+  );
 
   return (
     <div className="flex h-screen flex-col">
@@ -203,32 +247,7 @@ export default function ConversationPage() {
       </div>
 
       {/* composer */}
-      <form onSubmit={send} className="flex items-center gap-2 border-t border-line px-4 py-3">
-        <button type="button" onClick={() => fileRef.current?.click()} className="text-neutral-300">
-          <ImageIcon size={24} />
-        </button>
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          hidden
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-        />
-        <div className="flex flex-1 items-center gap-2 rounded-full border border-line px-4 py-2">
-          <input
-            {...register("text")}
-            placeholder={file ? `📎 ${file.name}` : "Message…"}
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-500"
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={isSubmitting || (!watch("text")?.trim() && !file)}
-          className="text-ig-blue disabled:opacity-40"
-        >
-          <ShareIcon size={24} />
-        </button>
-      </form>
+      <Composer onText={sendText} onGif={sendGif} onSticker={sendSticker} onVoice={sendVoice} />
     </div>
   );
 }

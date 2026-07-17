@@ -41,7 +41,8 @@ export default function MessageBubble({
 
   let content;
   if (m.kind === "sticker" && m.file) {
-    content = <Img src={m.file} alt="sticker" className="h-28 w-28 object-contain" />;
+    // Stickers are emoji glyphs in this backend, not images — render big text.
+    content = <span className="text-6xl leading-none">{m.file}</span>;
   } else if (m.kind === "voice" && m.file) {
     content = <VoiceMessage src={m.file} durationSec={m.durationSec} seed={m.id} mine={mine} />;
   } else {
