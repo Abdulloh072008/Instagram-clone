@@ -6,20 +6,9 @@ import { signIn, signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { setToken } from "@/lib/client";
-import { gLinkTokenKey } from "@/components/ConnectedAccounts";
+import { rememberLinkedCreds, credForGoogleEmail } from "@/lib/glink";
 
 type Fields = { userName: string; password: string };
-
-/** Токен ещё живой (exp в будущем)? */
-function jwtValid(token: string): boolean {
-  try {
-    const p = JSON.parse(atob(token.split(".")[1]));
-    return typeof p.exp === "number" && p.exp * 1000 > Date.now();
-  } catch {
-    return false;
-  }
-}
 
 export default function LoginPage() {
   const { login, register: authRegister, user, loading } = useAuth();
@@ -38,31 +27,34 @@ export default function LoginPage() {
     if (!loading && user) router.replace("/");
   }, [loading, user, router]);
 
-  // Мостик Google → приложение: у Google-сессии нет softclub-токена, а вход в
-  // приложение идёт по нему. Поэтому при входе через Google авто-создаём/входим
-  // в softclub-аккаунт, привязанный к почте (детерминированные логин/пароль),
-  // получаем настоящую сессию и попадаем внутрь.
+  // Мостик Google → приложение. У Google-сессии нет softclub-токена, а вход в
+  // приложение идёт по нему. Логика:
+  //  1) если Google-почта ПРИВЯЗАНА к аккаунту (сохранены логин/пароль) —
+  //     логинимся заново именно в ТОТ аккаунт (а не создаём новый);
+  //  2) иначе — детерминированный авто-аккаунт по почте (первый вход через Google).
   useEffect(() => {
     if (loading || user || bridging.current) return;
     const email = googleSession?.user?.email;
     if (!email) return;
     bridging.current = true;
 
-    // Если Google уже привязан к аккаунту (токен сохранён при привязке и ещё жив)
-    // — входим в ТОТ аккаунт, а не создаём новый. Полная перезагрузка, чтобы
-    // AuthProvider подхватил восстановленный токен.
-    const gid = googleSession?.providerAccountId ?? email;
-    const stored = typeof window !== "undefined" ? localStorage.getItem(gLinkTokenKey(gid)) : null;
-    if (stored && jwtValid(stored)) {
-      setToken(stored);
-      window.location.replace("/");
-      return;
-    }
-
-    const clean = email.replace(/[^a-z0-9]/gi, "").toLowerCase();
-    const uname = ("g" + clean).slice(0, 24);
-    const pass = "Gg1!" + clean.slice(0, 16);
     (async () => {
+      // (1) привязанный аккаунт — свежий вход по сохранённым данным
+      const linked = credForGoogleEmail(email);
+      if (linked) {
+        try {
+          await login(linked.userName, linked.password);
+          router.replace("/");
+          return;
+        } catch {
+          // пароль сменили/устарел — падаем на авто-аккаунт ниже
+        }
+      }
+
+      // (2) авто-аккаунт по почте (детерминированные логин/пароль)
+      const clean = email.replace(/[^a-z0-9]/gi, "").toLowerCase();
+      const uname = ("g" + clean).slice(0, 24);
+      const pass = "Gg1!" + clean.slice(0, 16);
       try {
         try {
           await login(uname, pass);
@@ -86,6 +78,8 @@ export default function LoginPage() {
   const onSubmit = handleSubmit(async ({ userName, password }) => {
     try {
       await login(userName.trim(), password);
+      // Запомнить данные аккаунта для входа через привязанный Google (см. lib/glink).
+      await rememberLinkedCreds(userName.trim(), password);
       router.replace("/");
     } catch (err) {
       setError("root", { message: err instanceof Error ? err.message : "Логин ноком шуд" });
