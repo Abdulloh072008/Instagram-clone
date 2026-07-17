@@ -72,20 +72,22 @@ export default function CallProvider({ children }: { children: React.ReactNode }
     setCall(null);
   }, [teardown]);
 
-  // Bind streams to the media elements whenever they change.
+  // Bind streams to the media elements whenever they change. Remote audio always
+  // plays through a dedicated <audio> sink so audio-only calls are audible too;
+  // the remote <video> is muted to avoid the sound playing twice on video calls.
   useEffect(() => {
     if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
   }, [localStream, phase]);
   useEffect(() => {
-    // Video shows the picture (muted — sound comes from the audio sink below).
-    if (remoteVideoRef.current) {
-      remoteVideoRef.current.srcObject = remoteStream;
-      remoteVideoRef.current.play?.().catch(() => {});
+    const v = remoteVideoRef.current;
+    if (v) {
+      v.srcObject = remoteStream;
+      if (remoteStream) v.play().catch(() => {});
     }
-    // Dedicated audio sink so BOTH voice and video calls actually play sound.
-    if (remoteAudioRef.current) {
-      remoteAudioRef.current.srcObject = remoteStream;
-      remoteAudioRef.current.play?.().catch(() => {});
+    const a = remoteAudioRef.current;
+    if (a) {
+      a.srcObject = remoteStream;
+      if (remoteStream) a.play().catch(() => {});
     }
   }, [remoteStream, phase]);
 

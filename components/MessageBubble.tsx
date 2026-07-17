@@ -6,7 +6,7 @@ import Img from "./Img";
 import VoiceMessage from "./VoiceMessage";
 import { SmileIcon, MoreIcon } from "./Icons";
 import { parseApiDate } from "@/lib/utils";
-import { reactionKey, toggleReaction } from "@/lib/chat";
+import { reactionKey, toggleReaction, mediaUrlFromText } from "@/lib/chat";
 import { messageReactions } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import type { MessageReactions, UnifiedMessage } from "@/lib/types";
@@ -47,8 +47,19 @@ export default function MessageBubble({
 }) {
   const { user } = useAuth();
   const sending = m.sending || m.id < 0;
-  // Stickers float free — no bubble, no background.
-  const bare = m.kind === "sticker";
+
+  // The image/GIF to show, whether it arrived as media (mediaUrl) or as a bare
+  // media URL that landed in the text field.
+  const mediaSrc =
+    m.kind === "image" || m.kind === "gif"
+      ? m.file
+      : m.kind === "text" && !m.file
+        ? mediaUrlFromText(m.text)
+        : null;
+  const showsText = !!m.text && m.text !== mediaSrc;
+
+  // Media and stickers float free — no bubble, no background.
+  const bare = m.kind === "sticker" || (!!mediaSrc && !showsText);
 
   const [reactions, setReactions] = useState<MessageReactions | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -106,14 +117,14 @@ export default function MessageBubble({
   } else {
     content = (
       <>
-        {m.file && (m.kind === "image" || m.kind === "gif") && (
+        {mediaSrc && (
           <Img
-            src={m.file}
+            src={mediaSrc}
             alt={m.kind}
-            className={`max-h-72 rounded-lg object-cover ${m.text ? "mb-1" : ""}`}
+            className={`max-h-72 max-w-full rounded-lg object-contain ${showsText ? "mb-1" : ""}`}
           />
         )}
-        {m.text && <p className="whitespace-pre-line wrap-break-word">{m.text}</p>}
+        {showsText && <p className="whitespace-pre-line wrap-break-word">{m.text}</p>}
       </>
     );
   }
@@ -132,15 +143,15 @@ export default function MessageBubble({
         </div>
       )}
 
-      <div className={`flex max-w-[75%] flex-col ${mine ? "items-end" : "items-start"}`}>
-        <div className={`flex items-center gap-1.5 ${mine ? "flex-row-reverse" : ""}`}>
+      <div className={`flex min-w-0 max-w-[75%] flex-col ${mine ? "items-end" : "items-start"}`}>
+        <div className={`flex min-w-0 max-w-full items-center gap-1.5 ${mine ? "flex-row-reverse" : ""}`}>
           <div
             onDoubleClick={() => react("❤️")}
             title={fullTime(m.date)}
             className={
               bare
-                ? `${sending ? "opacity-60" : ""}`
-                : `px-3.5 py-2 text-sm ${
+                ? `min-w-0 ${sending ? "opacity-60" : ""}`
+                : `min-w-0 px-3.5 py-2 text-sm ${
                     mine ? "bg-ig-blue text-white" : "bg-neutral-800 text-neutral-100"
                   } ${bubbleCorners(mine, startsGroup, endsGroup)} ${sending ? "opacity-60" : ""}`
             }

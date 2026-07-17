@@ -303,7 +303,7 @@ export default function ConversationPage() {
       </header>
 
       {/* messages */}
-      <div ref={scrollRef} className="flex flex-1 flex-col overflow-y-auto px-4 py-4">
+      <div ref={scrollRef} className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 py-4">
         {loading &&
           BUBBLE_WIDTHS.map((w, i) => (
             <div key={i} className={`mb-0.5 flex ${i % 2 ? "justify-end" : "justify-start"}`}>
