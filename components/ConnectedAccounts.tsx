@@ -4,6 +4,10 @@ import { useEffect, useState } from "react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { useAuth } from "@/lib/auth";
 import { EXTRA_API_BASE } from "@/lib/config";
+import { getToken } from "@/lib/client";
+
+/** Ключ, под которым храним токен привязанного softclub-аккаунта для Google-входа. */
+export const gLinkTokenKey = (gid: string) => "glinktoken:" + gid;
 
 interface Link {
   id: number;
@@ -54,6 +58,15 @@ export default function ConnectedAccounts() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  // Пока ты залогинен и Google привязан — держим свежий токен этого аккаунта
+  // локально, чтобы Google-вход входил именно в него (а не создавал новый).
+  useEffect(() => {
+    if (link?.providerAccountId && user) {
+      const tok = getToken();
+      if (tok) localStorage.setItem(gLinkTokenKey(link.providerAccountId), tok);
+    }
+  }, [link?.providerAccountId, user]);
+
   // Привязать текущую Google-сессию к аккаунту softclub.
   const linkGoogle = async () => {
     if (!user?.id || !gs?.user) return;
@@ -71,8 +84,14 @@ export default function ConnectedAccounts() {
       }),
     });
     const j = await res.json().catch(() => null);
-    if (j?.statusCode === 200) { setMsg("Google привязан ✓"); await load(); }
-    else setMsg(j?.errors?.[0] ?? "Не удалось привязать");
+    if (j?.statusCode === 200) {
+      // Сохраняем токен ЭТОГО аккаунта, чтобы Google-вход входил именно в него.
+      const gid = gs.providerAccountId ?? gs.user.email ?? "";
+      const tok = getToken();
+      if (gid && tok) localStorage.setItem(gLinkTokenKey(gid), tok);
+      setMsg("Google привязан ✓");
+      await load();
+    } else setMsg(j?.errors?.[0] ?? "Не удалось привязать");
     setBusy(false);
   };
 

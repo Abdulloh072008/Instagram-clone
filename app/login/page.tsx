@@ -6,8 +6,20 @@ import { signIn, signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
+import { setToken } from "@/lib/client";
+import { gLinkTokenKey } from "@/components/ConnectedAccounts";
 
 type Fields = { userName: string; password: string };
+
+/** Токен ещё живой (exp в будущем)? */
+function jwtValid(token: string): boolean {
+  try {
+    const p = JSON.parse(atob(token.split(".")[1]));
+    return typeof p.exp === "number" && p.exp * 1000 > Date.now();
+  } catch {
+    return false;
+  }
+}
 
 export default function LoginPage() {
   const { login, register: authRegister, user, loading } = useAuth();
@@ -35,6 +47,18 @@ export default function LoginPage() {
     const email = googleSession?.user?.email;
     if (!email) return;
     bridging.current = true;
+
+    // Если Google уже привязан к аккаунту (токен сохранён при привязке и ещё жив)
+    // — входим в ТОТ аккаунт, а не создаём новый. Полная перезагрузка, чтобы
+    // AuthProvider подхватил восстановленный токен.
+    const gid = googleSession?.providerAccountId ?? email;
+    const stored = typeof window !== "undefined" ? localStorage.getItem(gLinkTokenKey(gid)) : null;
+    if (stored && jwtValid(stored)) {
+      setToken(stored);
+      window.location.replace("/");
+      return;
+    }
+
     const clean = email.replace(/[^a-z0-9]/gi, "").toLowerCase();
     const uname = ("g" + clean).slice(0, 24);
     const pass = "Gg1!" + clean.slice(0, 16);
