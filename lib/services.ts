@@ -168,8 +168,12 @@ export const users = {
 export const profiles = {
   me: () => api.get<Envelope<UserProfile>>("/UserProfile/get-my-profile"),
   byId: (id: string) => api.get<Envelope<UserProfile>>("/UserProfile/get-user-profile-by-id", { id }),
-  isFollowing: (id: string) =>
-    api.get<Envelope<boolean>>("/UserProfile/get-is-follow-user-profile-by-id", { id }),
+  // The query param is `followingUserId`, not `id` — sending `id` meant the
+  // endpoint never saw who was being asked about and always answered "no".
+  isFollowing: (followingUserId: string) =>
+    api.get<Envelope<boolean>>("/UserProfile/get-is-follow-user-profile-by-id", {
+      followingUserId,
+    }),
   update: (about: string, gender: number) =>
     api.putJson("/UserProfile/update-user-profile", { about, gender }),
   updateImage: (imageFile: File) => {

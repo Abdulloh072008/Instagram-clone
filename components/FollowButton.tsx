@@ -1,22 +1,40 @@
 "use client";
 
-import { useState } from "react";
-import { follows } from "@/lib/services";
+import { useEffect, useState } from "react";
+import { follows, profiles } from "@/lib/services";
 import { toast } from "@/lib/toast";
 
 export default function FollowButton({
   userId,
-  initialFollowing = false,
+  initialFollowing,
   size = "md",
   onChange,
 }: {
   userId: string;
+  /** Omit when the caller doesn't know — the button will look it up itself. */
   initialFollowing?: boolean;
   size?: "sm" | "md";
   onChange?: (following: boolean) => void;
 }) {
-  const [following, setFollowing] = useState(initialFollowing);
+  const [following, setFollowing] = useState(!!initialFollowing);
   const [busy, setBusy] = useState(false);
+
+  // Lists (suggestions, notifications) render this without knowing whether you
+  // already follow the person, so it used to claim "Follow" for everyone. Ask
+  // when the caller can't say. Profile pages pass the answer in and skip this.
+  // ponytail: one request per button — fine for the handful of rows these lists
+  // show; if a long list ever renders them, fetch the follow set once instead.
+  useEffect(() => {
+    if (initialFollowing !== undefined) return;
+    let alive = true;
+    profiles
+      .isFollowing(userId)
+      .then((r) => alive && setFollowing(Boolean(r.data)))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [userId, initialFollowing]);
 
   async function toggle() {
     if (busy) return;
