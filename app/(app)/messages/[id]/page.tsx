@@ -9,7 +9,7 @@ import Img from "@/components/Img";
 import Skeleton from "@/components/Skeleton";
 import { toast } from "@/lib/toast";
 import { chats } from "@/lib/services";
-import { otherUser } from "@/lib/chat";
+import { otherUser, isNearBottom, threadChanged } from "@/lib/chat";
 import { useAuth } from "@/lib/auth";
 import { timeAgo } from "@/lib/utils";
 import type { ChatMessage } from "@/lib/types";
@@ -27,7 +27,11 @@ export default function ConversationPage() {
   const [peer, setPeer] = useState<{ id: string; name: string; image: string | null } | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // First paint jumps to the bottom instantly; later updates only follow if you
+  // were already there. Without this the 5s poll yanks you down mid-scroll.
+  const firstPaintRef = useRef(true);
   const {
     register,
     handleSubmit,
@@ -39,7 +43,10 @@ export default function ConversationPage() {
   const loadMessages = useCallback(async () => {
     try {
       const res = await chats.byId(chatId);
-      setMessages(res.data ?? []);
+      const next = res.data ?? [];
+      // Keep the old array reference when nothing changed, so effects keyed on
+      // `messages` don't re-run every poll (scroll, and later the reaction observer).
+      setMessages((prev) => (threadChanged(prev, next) ? next : prev));
     } catch {
       /* ignore */
     } finally {
@@ -58,6 +65,14 @@ export default function ConversationPage() {
       .catch(() => {});
   }, [chatId, user?.id]);
 
+  // Switching chats without unmounting: treat the new chat as a fresh load so
+  // it shows its skeleton and jumps to the bottom instead of inheriting the old.
+  useEffect(() => {
+    setMessages([]);
+    setLoading(true);
+    firstPaintRef.current = true;
+  }, [chatId]);
+
   // Initial + polling load.
   useEffect(() => {
     loadMessages();
@@ -66,8 +81,18 @@ export default function ConversationPage() {
   }, [loadMessages]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    if (loading) return;
+    if (firstPaintRef.current) {
+      // Jump, don't animate, on the first load — smooth-scrolling a full thread
+      // from the top is a visible swoop every time you open a chat.
+      bottomRef.current?.scrollIntoView();
+      firstPaintRef.current = false;
+      return;
+    }
+    if (scrollRef.current && isNearBottom(scrollRef.current)) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, loading]);
 
   const send = handleSubmit(async ({ text }) => {
     if (!text.trim() && !file) return;
@@ -101,7 +126,7 @@ export default function ConversationPage() {
       </header>
 
       {/* messages */}
-      <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-4">
+      <div ref={scrollRef} className="flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-4">
         {loading &&
           BUBBLE_WIDTHS.map((w, i) => (
             <div key={i} className={`flex ${i % 2 ? "justify-end" : "justify-start"}`}>
