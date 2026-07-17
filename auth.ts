@@ -15,6 +15,9 @@ import Google from "next-auth/providers/google";
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [Google],
   trustHost: true,
+  // AUTH_SECRET из .env.local в проде; фолбэк, чтобы без него /api/auth/session
+  // не падал с 500 (MissingSecret) при локальном запуске без .env.local.
+  secret: process.env.AUTH_SECRET ?? "dev-insecure-fallback-secret-set-AUTH_SECRET",
   callbacks: {
     // Сохраняем id внешнего аккаунта в токен при первом входе...
     jwt({ token, account }) {
