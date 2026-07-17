@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import Img from "@/components/Img";
@@ -10,7 +10,7 @@ import Skeleton from "@/components/Skeleton";
 import { posts as postsApi, reposts as repostsApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import { formatCount } from "@/lib/utils";
-import type { Post } from "@/lib/types";
+import type { Paged, Post } from "@/lib/types";
 import {
   HeartIcon,
   HeartFilled,
@@ -129,33 +129,70 @@ function Reel({ post }: { post: Post }) {
   );
 }
 
+const PAGE_SIZE = 8;
+
+// get-reels is slow and sometimes hangs; keep pages small and retry before giving up.
+async function fetchReels(page: number, attempt = 0): Promise<Paged<Post> | null> {
+  try {
+    const res = await postsApi.reels(page, PAGE_SIZE);
+    // It also answers an empty page for reels it does have — retry those too.
+    if (!res.data?.length && res.totalRecord > 0 && attempt < 3) return fetchReels(page, attempt + 1);
+    return res;
+  } catch {
+    return attempt < 3 ? fetchReels(page, attempt + 1) : null;
+  }
+}
+
 export default function ReelsPage() {
   const [reels, setReels] = useState<Post[]>([]);
+  const [page, setPage] = useState(1);
+  const [totalPage, setTotalPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const seen = useRef<Set<number>>(new Set());
+  const scroller = useRef<HTMLDivElement>(null);
+  const sentinel = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    let alive = true;
-    // get-reels is slow and sometimes hangs; small page + retry a few times before giving up.
-    async function load(attempt = 0) {
-      try {
-        const res = await postsApi.reels(1, 8);
-        const items = (res.data ?? []).filter((p) => p.images.length);
-        if (!alive) return;
-        if (items.length === 0 && attempt < 3) return load(attempt + 1);
-        setReels(items);
-        setLoading(false);
-      } catch {
-        if (attempt < 3) return load(attempt + 1);
-        if (alive) setLoading(false);
-      }
+  const load = useCallback(async (p: number) => {
+    setLoading(true);
+    try {
+      const res = await fetchReels(p);
+      if (!res) return;
+      setTotalPage(res.totalPage ?? 1);
+      const fresh = (res.data ?? []).filter((post) => {
+        if (!post.images.length || seen.current.has(post.postId)) return false;
+        seen.current.add(post.postId);
+        return true;
+      });
+      setReels((prev) => (fresh.length ? [...prev, ...fresh] : prev));
+    } finally {
+      setLoading(false);
     }
-    load();
-    return () => {
-      alive = false;
-    };
   }, []);
 
-  if (loading) {
+  useEffect(() => {
+    load(1);
+  }, [load]);
+
+  // Infinite scroll. Root is the snap container, not the viewport — rootMargin only
+  // buys prefetch distance when it expands the element that actually clips the sentinel.
+  useEffect(() => {
+    const el = sentinel.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loading && page < totalPage) {
+          const nextPage = page + 1;
+          setPage(nextPage);
+          load(nextPage);
+        }
+      },
+      { root: scroller.current, rootMargin: "600px" }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [page, totalPage, loading, load]);
+
+  if (loading && reels.length === 0) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Skeleton className="h-[88vh] w-full max-w-[440px] rounded-none md:rounded-xl" />
@@ -170,7 +207,10 @@ export default function ReelsPage() {
   }
 
   return (
-    <div className="no-scrollbar h-[100dvh] snap-y snap-mandatory overflow-y-scroll overscroll-y-contain">
+    <div
+      ref={scroller}
+      className="no-scrollbar h-[100dvh] snap-y snap-mandatory overflow-y-scroll overscroll-y-contain"
+    >
       {reels.map((post) => (
         <div
           key={post.postId}
@@ -179,6 +219,7 @@ export default function ReelsPage() {
           <Reel post={post} />
         </div>
       ))}
+      <div ref={sentinel} className="h-4" />
     </div>
   );
 }
