@@ -6,17 +6,21 @@ import Avatar from "./Avatar";
 import FollowButton from "./FollowButton";
 import { users } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
+import { RowsSkeleton } from "./Skeleton";
 import type { UserListItem } from "@/lib/types";
 
 export default function Suggestions() {
   const { user } = useAuth();
   const [list, setList] = useState<UserListItem[]>([]);
+  // Tracked separately from list.length — an empty result must stop the skeleton.
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     users
       .list(1, 8)
       .then((res) => setList((res.data ?? []).filter((u) => u.userName !== user?.userName)))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [user?.userName]);
 
   return (
@@ -36,6 +40,7 @@ export default function Suggestions() {
       </div>
 
       <div className="flex flex-col gap-3">
+        {loading && <RowsSkeleton count={5} className="-mx-4" />}
         {list.map((u) => (
           <div key={u.id} className="flex items-center gap-3">
             <Link href={`/u/${u.id}`}>

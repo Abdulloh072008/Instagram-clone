@@ -2,13 +2,22 @@
 import { api, extraApi } from "./client";
 import type {
   AppNotification,
+  AuthUser,
+  CallInfo,
+  CallSignal,
+  CallType,
   ChatListItem,
   ChatMessage,
   Envelope,
+  ExtraMessage,
+  FollowListItem,
+  GifItem,
+  MessageReactions,
   Paged,
   Post,
   Repost,
   RepostState,
+  StoryReactions,
   UserListItem,
   UserProfile,
   UserStories,
@@ -89,50 +98,6 @@ export const reposts = {
   byUser: (userId: string) => extraApi.get<Envelope<Repost[]>>("/Repost/user", { userId }),
 };
 
-// ---------- Calls / reactions / GIF / stickers (extra backend) ----------
-export interface CallDto {
-  id: number;
-  callerId: string;
-  callerName: string;
-  calleeId: string;
-  calleeName: string;
-  type: "video" | "audio";
-  status: "ringing" | "accepted" | "declined" | "ended" | "missed";
-  createdAt: string;
-  endedAt: string | null;
-}
-export interface GifDto { id: string; url: string; preview: string; title: string; width: number; height: number }
-export interface StickerDto { id: number; pack: string; name: string; url: string }
-export interface MsgReactions { total: number; summary: { emoji: string; count: number }[]; mine: string | null }
-
-export const calls = {
-  start: (payload: { callerId: string; callerName: string; calleeId: string; calleeName: string; type: "video" | "audio" }) =>
-    extraApi.postJson<Envelope<CallDto>>("/Call/start", payload),
-  incoming: (userId: string) => extraApi.get<Envelope<CallDto[]>>("/Call/incoming", { userId }),
-  get: (callId: number) => extraApi.get<Envelope<CallDto>>("/Call/get", { callId }),
-  accept: (callId: number) => extraApi.putJson<Envelope<CallDto>>("/Call/accept", undefined, { callId }),
-  decline: (callId: number) => extraApi.putJson<Envelope<CallDto>>("/Call/decline", undefined, { callId }),
-  end: (callId: number) => extraApi.putJson<Envelope<CallDto>>("/Call/end", undefined, { callId }),
-};
-
-export const messageReactions = {
-  add: (messageId: number, userId: string, userName: string, emoji: string) =>
-    extraApi.postJson("/MessageReaction/add", { messageId, userId, userName, emoji }),
-  get: (messageId: number, userId: string) =>
-    extraApi.get<Envelope<MsgReactions>>("/MessageReaction/get", { messageId, userId }),
-  remove: (messageId: number, userId: string) =>
-    extraApi.del("/MessageReaction/remove", { messageId, userId }),
-};
-
-export const gifs = {
-  search: (q: string, limit = 24) => extraApi.get<Envelope<GifDto[]>>("/Gif/search", { q, limit }),
-  trending: (limit = 24) => extraApi.get<Envelope<GifDto[]>>("/Gif/trending", { limit }),
-};
-
-export const stickerCatalog = {
-  get: (pack?: string) => extraApi.get<Envelope<StickerDto[]>>("/Sticker/get", { pack }),
-};
-
 // ---------- Privacy + follow requests (extra backend) ----------
 export interface FollowRequestDto {
   id: number; requesterId: string; requesterName: string; requesterImage: string | null;
@@ -208,39 +173,61 @@ export const notInterested = {
   list: (userId: string) => extraApi.get<Envelope<number[]>>("/NotInterested/get", { userId }),
 };
 
-// ---------- Stories ----------
+// ---------- Stories (extra backend: /StoryExtra + /StoryInteract) ----------
+// The main API's /Story controller is no longer used: the extra backend owns
+// stories now and serves reactions/replies the main one never had. No JWT here,
+// so the caller's id/name travel explicitly on every write.
 export const stories = {
-  all: () => api.get<UserStories[]>("/Story/get-stories"),
-  mine: () => api.get<UserStories[]>("/Story/get-my-stories"),
-  byUser: (userId: string) => api.get<UserStories>(`/Story/get-user-stories/${userId}`),
-  like: (storyId: number) => api.postJson("/Story/LikeStory", undefined, { storyId }),
-  view: (storyId: number) => api.postJson("/Story/add-story-view", undefined, { storyId }),
-  add: (image: File, postId?: number) => {
-    const form = new FormData();
-    form.append("Image", image);
-    return api.postForm("/Story/AddStories", form, { PostId: postId });
-  },
-  remove: (id: number) => api.del("/Story/DeleteStory", { id }),
+  all: () => extraApi.get<Envelope<UserStories[]>>("/StoryExtra/feed").then((r) => r.data ?? []),
 
-  // Real story interactions (companion backend /StoryInteract/*).
-  react: (userId: string, userName: string, storyId: number, emoji: string) =>
-    extraApi.postJson("/StoryInteract/react", { storyId, userId, userName, emoji }),
-  reactions: (storyId: number, userId: string) =>
-    extraApi.get<Envelope<{ total: number; summary: { emoji: string; count: number }[]; mine: string | null }>>(
-      "/StoryInteract/get-reactions",
-      { storyId, userId },
-    ),
-  removeReaction: (userId: string, storyId: number) =>
+  add: (me: AuthUser, file: File, caption = "") => {
+    const form = new FormData();
+    form.append("UserId", me.id);
+    form.append("UserName", me.userName);
+    if (me.image) form.append("UserImage", me.image);
+    form.append("Caption", caption);
+    form.append("File", file);
+    return extraApi.postForm("/StoryExtra/add", form);
+  },
+
+  view: (storyId: number, me: AuthUser) =>
+    extraApi.postJson("/StoryExtra/view", undefined, {
+      storyId,
+      userId: me.id,
+      userName: me.userName,
+    }),
+
+  like: (storyId: number, me: AuthUser) =>
+    extraApi.postJson("/StoryExtra/like", undefined, {
+      storyId,
+      userId: me.id,
+      userName: me.userName,
+    }),
+
+  remove: (id: number) => extraApi.del("/StoryExtra/delete", { id }),
+
+  reactions: (storyId: number, userId?: string) =>
+    extraApi.get<Envelope<StoryReactions>>("/StoryInteract/get-reactions", { storyId, userId }),
+
+  react: (storyId: number, me: AuthUser, emoji: string) =>
+    extraApi.postJson("/StoryInteract/react", {
+      storyId,
+      userId: me.id,
+      userName: me.userName,
+      emoji,
+    }),
+
+  unreact: (storyId: number, userId: string) =>
     extraApi.del("/StoryInteract/remove-reaction", { storyId, userId }),
-  // Reply is delivered to the story author (not a comment on a post anymore).
-  reply: (storyId: number, ownerUserId: string, fromUserId: string, fromUserName: string, text: string) =>
-    extraApi.postJson("/StoryInteract/reply", { storyId, ownerUserId, fromUserId, fromUserName, text }),
-  replies: (ownerUserId: string) =>
-    extraApi.get<Envelope<unknown[]>>("/StoryInteract/get-replies", { ownerUserId }),
-  // Cross-device "seen" (survives across devices, not just localStorage).
-  markViewed: (storyId: number, userId: string) =>
-    extraApi.postJson("/StoryInteract/mark-viewed", undefined, { storyId, userId }),
-  viewed: (userId: string) => extraApi.get<Envelope<number[]>>("/StoryInteract/get-viewed", { userId }),
+
+  reply: (storyId: number, ownerUserId: string, me: AuthUser, text: string) =>
+    extraApi.postJson("/StoryInteract/reply", {
+      storyId,
+      ownerUserId,
+      fromUserId: me.id,
+      fromUserName: me.userName,
+      text,
+    }),
 };
 
 // ---------- Users / search ----------
@@ -262,8 +249,19 @@ export const users = {
 export const profiles = {
   me: () => api.get<Envelope<UserProfile>>("/UserProfile/get-my-profile"),
   byId: (id: string) => api.get<Envelope<UserProfile>>("/UserProfile/get-user-profile-by-id", { id }),
-  isFollowing: (id: string) =>
-    api.get<Envelope<boolean>>("/UserProfile/get-is-follow-user-profile-by-id", { id }),
+  // Two traps here, both verified against the live API:
+  //  - the query param is `followingUserId`, not `id`; sending `id` gets a 404,
+  //  - despite the name it answers with the target's PROFILE carrying an
+  //    `isSubscriber` flag, not a bare boolean. `Boolean(envelope.data)` is
+  //    therefore always true, which marks every account as already followed.
+  // Unwrap to a real yes/no here so no caller can repeat either mistake.
+  isFollowing: (followingUserId: string) =>
+    api
+      .get<Envelope<{ isSubscriber?: boolean } | null>>(
+        "/UserProfile/get-is-follow-user-profile-by-id",
+        { followingUserId },
+      )
+      .then((r) => r.data?.isSubscriber === true),
   update: (about: string, gender: number) =>
     api.putJson("/UserProfile/update-user-profile", { about, gender }),
   updateImage: (imageFile: File) => {
@@ -278,9 +276,13 @@ export const profiles = {
 // ---------- Following ----------
 export const follows = {
   subscribers: (userId: string) =>
-    api.get<Envelope<UserListItem[]>>("/FollowingRelationShip/get-subscribers", { UserId: userId }),
+    api.get<Envelope<FollowListItem[]>>("/FollowingRelationShip/get-subscribers", {
+      UserId: userId,
+    }),
   subscriptions: (userId: string) =>
-    api.get<Envelope<UserListItem[]>>("/FollowingRelationShip/get-subscriptions", { UserId: userId }),
+    api.get<Envelope<FollowListItem[]>>("/FollowingRelationShip/get-subscriptions", {
+      UserId: userId,
+    }),
   follow: (followingUserId: string) =>
     api.postJson("/FollowingRelationShip/add-following-relation-ship", undefined, { followingUserId }),
   unfollow: (followingUserId: string) =>
@@ -316,6 +318,99 @@ export const chats = {
     if (file) form.append("File", file);
     return api.putForm("/Chat/send-message", form);
   },
-  deleteMessage: (messageId: number) => api.del("/Chat/delete-message", { messageId }),
+  // The backend misspells the query param as `massageId`; sending `messageId`
+  // is silently ignored and nothing gets deleted. Verified against the live spec.
+  deleteMessage: (messageId: number) => api.del("/Chat/delete-message", { massageId: messageId }),
   deleteChat: (chatId: number) => api.del("/Chat/delete-chat", { chatId }),
+};
+
+// ---------- Rich messages (extra backend, no JWT: sender is explicit) ----------
+// A parallel per-chat store keyed by the same chatId. Holds what main /Chat
+// can't: gif/voice/sticker, plus "seen" read-receipt markers. Only this client
+// sees these — the main API and other clients never do.
+export const chatExtra = {
+  get: (chatId: number, type?: string) =>
+    extraApi.get<Envelope<ExtraMessage[]>>("/ChatExtra/get", { chatId, type }),
+
+  // JSON send for anything whose media is already a URL (gif, sticker).
+  send: (chatId: number, me: AuthUser, kind: string, opts: { text?: string; mediaUrl?: string }) =>
+    extraApi.postJson<Envelope<ExtraMessage>>("/ChatExtra/send", {
+      chatId,
+      senderId: me.id,
+      senderName: me.userName,
+      type: kind,
+      text: opts.text ?? null,
+      mediaUrl: opts.mediaUrl ?? null,
+      fileName: null,
+    }),
+
+  // Multipart send for a recorded blob (voice notes).
+  sendFile: (chatId: number, me: AuthUser, kind: string, file: File, durationSec?: number, text?: string) => {
+    const form = new FormData();
+    form.append("ChatId", String(chatId));
+    form.append("SenderId", me.id);
+    form.append("SenderName", me.userName);
+    form.append("Type", kind);
+    form.append("File", file);
+    if (durationSec != null) form.append("DurationSec", String(Math.round(durationSec)));
+    if (text) form.append("Text", text);
+    return extraApi.postForm<Envelope<ExtraMessage>>("/ChatExtra/send-file", form);
+  },
+
+  remove: (id: number) => extraApi.del("/ChatExtra/delete", { id }),
+};
+
+// ---------- Message reactions (extra backend) ----------
+// Keyed by a messageId that spans both stores via reactionKey() — see lib/chat.
+export const messageReactions = {
+  get: (messageId: number, userId?: string) =>
+    extraApi.get<Envelope<MessageReactions>>("/MessageReaction/get", { messageId, userId }),
+  add: (messageId: number, me: AuthUser, emoji: string) =>
+    extraApi.postJson("/MessageReaction/add", {
+      messageId,
+      userId: me.id,
+      userName: me.userName,
+      emoji,
+    }),
+  remove: (messageId: number, userId: string) =>
+    extraApi.del("/MessageReaction/remove", { messageId, userId }),
+};
+
+// ---------- GIFs & stickers (extra backend) ----------
+export const gifs = {
+  trending: (limit = 24) => extraApi.get<Envelope<GifItem[]>>("/Gif/trending", { limit }),
+  search: (q: string, limit = 24, offset = 0) =>
+    extraApi.get<Envelope<GifItem[]>>("/Gif/search", { q, limit, offset }),
+};
+
+// In this backend a "sticker" is a big emoji: `url` is the emoji glyph itself,
+// not an image address. MessageBubble renders it as large text accordingly.
+export const stickers = {
+  packs: () => extraApi.get<Envelope<string[]>>("/Sticker/packs"),
+  get: (pack: string) =>
+    extraApi.get<Envelope<{ id: number; pack: string; name: string; url: string }[]>>("/Sticker/get", { pack }),
+};
+
+// ---------- Calls (extra backend) ----------
+// State + WebRTC signaling. Media is negotiated over send-signal/get-signals;
+// the API never touches audio/video itself.
+export const calls = {
+  start: (me: AuthUser, callee: { id: string; name: string }, type: CallType) =>
+    extraApi.postJson<Envelope<CallInfo>>("/Call/start", {
+      callerId: me.id,
+      callerName: me.userName,
+      calleeId: callee.id,
+      calleeName: callee.name,
+      type,
+    }),
+  incoming: (userId: string) => extraApi.get<Envelope<CallInfo[]>>("/Call/incoming", { userId }),
+  get: (callId: number) => extraApi.get<Envelope<CallInfo>>("/Call/get", { callId }),
+  history: (userId: string) => extraApi.get<Envelope<CallInfo[]>>("/Call/history", { userId }),
+  accept: (callId: number) => extraApi.put<Envelope<CallInfo>>("/Call/accept", { callId }),
+  decline: (callId: number) => extraApi.put<Envelope<CallInfo>>("/Call/decline", { callId }),
+  end: (callId: number) => extraApi.put<Envelope<CallInfo>>("/Call/end", { callId }),
+  sendSignal: (callId: number, fromUserId: string, kind: string, payload: string) =>
+    extraApi.postJson<Envelope<CallSignal>>("/Call/send-signal", { callId, fromUserId, kind, payload }),
+  getSignals: (callId: number, userId: string, sinceId: number) =>
+    extraApi.get<Envelope<CallSignal[]>>("/Call/get-signals", { callId, userId, sinceId }),
 };

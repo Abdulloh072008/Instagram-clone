@@ -7,6 +7,7 @@ import Avatar from "./Avatar";
 import PostCarousel from "./PostCarousel";
 import PostModal from "./PostModal";
 import { posts as postsApi, reposts as repostsApi, notInterested as notInterestedApi } from "@/lib/services";
+import { toast } from "@/lib/toast";
 import { useAuth } from "@/lib/auth";
 import { timeAgo, formatCount } from "@/lib/utils";
 import type { Post, PostComment } from "@/lib/types";
@@ -79,6 +80,7 @@ export default function PostCard({
     } catch {
       setLiked(!next);
       setLikeCount((c) => c + (next ? -1 : 1));
+      toast(next ? "Couldn't like that post" : "Couldn't unlike that post");
     }
   }
 
@@ -97,7 +99,7 @@ export default function PostCard({
       setDeleted(true);
       onDeleted?.();
     } catch {
-      /* ignore */
+      toast("Couldn't delete the post");
     }
   }
 
@@ -108,7 +110,7 @@ export default function PostCard({
       setDeleted(true);
       onDeleted?.();
     } catch {
-      /* ignore */
+      toast("Couldn't remove the repost");
     }
   }
 
@@ -122,6 +124,7 @@ export default function PostCard({
       else await repostsApi.remove(user.id, post.postId);
     } catch {
       setReposted(!next);
+      toast(next ? "Couldn't repost" : "Couldn't remove the repost");
     }
   }
 
@@ -131,6 +134,7 @@ export default function PostCard({
       await postsApi.favorite(post.postId);
     } catch {
       setSaved((s) => !s);
+      toast("Couldn't update your saved posts");
     }
   }
 
@@ -151,7 +155,7 @@ export default function PostCard({
       setCommentCount((c) => c + 1);
       reset();
     } catch {
-      /* ignore */
+      toast("Couldn't post your comment");
     }
   });
 

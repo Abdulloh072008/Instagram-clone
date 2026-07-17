@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import ProfileView from "@/components/ProfileView";
 import LockedProfile from "@/components/LockedProfile";
+import { ProfileSkeleton } from "@/components/Skeleton";
 import { profiles, posts as postsApi, privacy, followRequests } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import type { Post, UserProfile } from "@/lib/types";
@@ -28,12 +29,12 @@ export default function UserProfilePage() {
     Promise.all([
       profiles.byId(id),
       postsApi.byUser(id, 1, 30),
-      profiles.isFollowing(id).catch(() => ({ data: false })),
+      profiles.isFollowing(id).catch(() => false),
     ])
       .then(([p, posts, follow]) => {
         setProfile(p.data);
         setUserPosts(posts.data ?? []);
-        setFollowing(Boolean((follow as { data: boolean }).data));
+        setFollowing(follow);
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -47,13 +48,7 @@ export default function UserProfilePage() {
     if (user?.id) followRequests.status(user.id, id).then((r) => setReqStatus(r.data ?? "none")).catch(() => {});
   }, [id, user?.id]);
 
-  if (loading || !profile) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <div className="h-7 w-7 animate-spin rounded-full border-2 border-neutral-700 border-t-white" />
-      </div>
-    );
-  }
+  if (loading || !profile) return <ProfileSkeleton />;
 
   // Закрытый аккаунт: контент скрыт, пока не подписан / запрос не одобрен.
   const locked = isPrivate && !isMe && !following && reqStatus !== "approved";

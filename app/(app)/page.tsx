@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import PostCard from "@/components/PostCard";
 import StoriesBar from "@/components/StoriesBar";
 import Suggestions from "@/components/Suggestions";
+import { PostCardSkeleton } from "@/components/Skeleton";
 import { posts as postsApi, notInterested as notInterestedApi, blocks as blocksApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import type { Post } from "@/lib/types";
@@ -86,9 +87,12 @@ export default function HomeFeed() {
             ))}
         </div>
 
+        {/* First load fills the page; paging in only needs one card's worth. */}
         {loading && (
-          <div className="flex justify-center py-8">
-            <div className="h-7 w-7 animate-spin rounded-full border-2 border-neutral-700 border-t-white" />
+          <div className="mt-4 flex flex-col gap-6">
+            {Array.from({ length: items.length ? 1 : 3 }).map((_, i) => (
+              <PostCardSkeleton key={i} />
+            ))}
           </div>
         )}
         {!loading && page >= totalPage && items.length > 0 && (

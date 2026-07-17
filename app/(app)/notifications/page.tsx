@@ -6,6 +6,7 @@ import Avatar from "@/components/Avatar";
 import Img from "@/components/Img";
 import FollowButton from "@/components/FollowButton";
 import FollowRequests from "@/components/FollowRequests";
+import { RowsSkeleton } from "@/components/Skeleton";
 import { notifications as notifApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import { timeAgo } from "@/lib/utils";
@@ -77,11 +78,7 @@ export default function NotificationsPage() {
       <h1 className="mb-4 px-2 text-2xl font-bold">Notifications</h1>
       <FollowRequests />
 
-      {loading && (
-        <div className="flex justify-center py-16">
-          <div className="h-7 w-7 animate-spin rounded-full border-2 border-neutral-700 border-t-white" />
-        </div>
-      )}
+      {loading && <RowsSkeleton count={8} className="-mx-2" />}
 
       {!loading && items.length === 0 && (
         <div className="flex flex-col items-center gap-3 py-20 text-center">
