@@ -40,8 +40,7 @@ export default function StoriesBar() {
           freshStories(
             followedStories(
               feed,
-              // Both id spellings — see FollowListItem for why this is unsettled.
-              following.map((u) => u.userShortInfo?.userId ?? String(u.id ?? "")),
+              following.map((u) => u.userShortInfo.userId),
               user.id,
             ),
           ),
