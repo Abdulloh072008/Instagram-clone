@@ -13,6 +13,7 @@ import {
   toggleReaction,
   fromExtra,
   latestPeerSeen,
+  mediaUrlFromText,
   SEEN_MARKER,
   EXTRA_ID_OFFSET,
 } from "./chat.ts";
@@ -247,6 +248,23 @@ test("latestPeerSeen: takes the peer's newest marker, ignores my own", () => {
 
 test("latestPeerSeen: no markers means never seen (0)", () => {
   assert.equal(latestPeerSeen([extraGif], "me"), 0);
+});
+
+test("mediaUrlFromText: a lone Giphy URL is recognized as an image", () => {
+  const url = "https://media4.giphy.com/media/v1.abcDEF/200.gif";
+  assert.equal(mediaUrlFromText(url), url);
+});
+
+test("mediaUrlFromText: a plain image URL is recognized", () => {
+  assert.equal(mediaUrlFromText("http://x.com/a.png"), "http://x.com/a.png");
+});
+
+test("mediaUrlFromText: ordinary text with a link is left as text", () => {
+  assert.equal(mediaUrlFromText("look at https://x.com/a.gif"), null);
+});
+
+test("mediaUrlFromText: a non-media link is left as text", () => {
+  assert.equal(mediaUrlFromText("https://example.com/page"), null);
 });
 
 test("fromExtra: an unknown type falls back to text, not a phantom kind", () => {

@@ -39,6 +39,19 @@ export function isSeenMarker(text: string | null | undefined): boolean {
 }
 
 /**
+ * If a message body is nothing but a link to an image/GIF (e.g. a Giphy URL
+ * that landed in the text field), return that URL so the UI can show it as an
+ * image instead of a long unwrappable line of text. Otherwise null.
+ */
+export function mediaUrlFromText(text: string | null | undefined): string | null {
+  const t = (text ?? "").trim();
+  if (!/^https?:\/\/\S+$/i.test(t)) return null; // must be a single bare URL
+  if (/\.(gif|png|jpe?g|webp|avif)(\?|#|$)/i.test(t)) return t;
+  if (/giphy\.com\/media\//i.test(t)) return t;
+  return null;
+}
+
+/**
  * The peer's most recent read time (epoch-ms, 0 if never), from their seen
  * markers in the raw ChatExtra list. Markers I wrote are excluded — only the
  * other side's reads count as "they saw it".
