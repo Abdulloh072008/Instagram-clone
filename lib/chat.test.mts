@@ -12,6 +12,8 @@ import {
   reactionKey,
   toggleReaction,
   fromExtra,
+  latestPeerSeen,
+  SEEN_MARKER,
   EXTRA_ID_OFFSET,
 } from "./chat.ts";
 import type { ThreadRow } from "./chat.ts";
@@ -217,10 +219,34 @@ test("mergeThread: interleaves both stores in time order", () => {
 });
 
 test("mergeThread: read-receipt markers never become bubbles", () => {
-  const seen: ExtraMessage = { ...extraGif, id: 2, type: "seen", createdAt: "2026-07-17T10:05:00" };
+  // The store rewrites custom types to "text", so a marker arrives as a text
+  // message carrying the sentinel — it must be filtered by body, not type.
+  const seen: ExtraMessage = { ...extraGif, id: 2, type: "text", text: SEEN_MARKER, mediaUrl: null, createdAt: "2026-07-17T10:05:00" };
   const merged = mergeThread([mainMsg], [extraGif, seen]);
   assert.equal(merged.length, 2);
-  assert.ok(!merged.some((m) => m.kind === "seen"));
+  assert.ok(!merged.some((m) => m.text === SEEN_MARKER));
+});
+
+test("latestPeerSeen: takes the peer's newest marker, ignores my own", () => {
+  const mkr = (id: number, senderId: string, at: string): ExtraMessage => ({
+    ...extraGif,
+    id,
+    senderId,
+    type: "text",
+    text: SEEN_MARKER,
+    mediaUrl: null,
+    createdAt: at,
+  });
+  const extra = [
+    mkr(1, "you", "2026-07-17T10:00:00"),
+    mkr(2, "you", "2026-07-17T10:05:00"),
+    mkr(3, "me", "2026-07-17T10:09:00"), // mine — must not count
+  ];
+  assert.equal(latestPeerSeen(extra, "me"), Date.parse("2026-07-17T10:05:00Z"));
+});
+
+test("latestPeerSeen: no markers means never seen (0)", () => {
+  assert.equal(latestPeerSeen([extraGif], "me"), 0);
 });
 
 test("fromExtra: an unknown type falls back to text, not a phantom kind", () => {

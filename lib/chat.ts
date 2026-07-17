@@ -24,11 +24,32 @@ export function otherUser(chat: ChatListItem, myId?: string) {
 
 // ---------- Two stores, one thread ----------
 
-const KNOWN_KINDS: MessageKind[] = ["text", "image", "gif", "voice", "sticker", "seen"];
+const KNOWN_KINDS: MessageKind[] = ["text", "image", "gif", "voice", "sticker"];
 
-// Kinds that are bookkeeping, not conversation — kept out of the visible thread
-// and out of inbox previews. "seen" is a read receipt written as a message.
-const MARKER_KINDS = new Set<MessageKind>(["seen"]);
+// The ChatExtra store only accepts the kinds above — it rewrites any other
+// `type` to "text". So a read receipt can't be its own type; it's a normal text
+// message whose body is this improbable sentinel token, which we recognize and
+// keep out of the thread and previews. Plain ASCII so the server preserves it
+// byte-for-byte; no user types this as a whole message.
+export const SEEN_MARKER = "__ig_seen_marker__";
+
+/** Is this message one of our read-receipt markers rather than real text? */
+export function isSeenMarker(text: string | null | undefined): boolean {
+  return text === SEEN_MARKER;
+}
+
+/**
+ * The peer's most recent read time (epoch-ms, 0 if never), from their seen
+ * markers in the raw ChatExtra list. Markers I wrote are excluded — only the
+ * other side's reads count as "they saw it".
+ */
+export function latestPeerSeen(extra: ExtraMessage[], myId: string | undefined): number {
+  const times = extra
+    .filter((e) => isSeenMarker(e.text) && e.senderId !== myId)
+    .map((e) => parseApiDate(e.createdAt))
+    .filter((t) => !Number.isNaN(t));
+  return times.length ? Math.max(...times) : 0;
+}
 
 // ChatExtra ids start at 1 and share no space with main /Chat ids, so a bare
 // messageId would let a reaction on extra #5 land on main #5. Offsetting the
@@ -122,7 +143,7 @@ export function fromExtra(e: ExtraMessage): UnifiedMessage {
  * timestamps don't drift a whole timezone.
  */
 export function mergeThread(main: ChatMessage[], extra: ExtraMessage[]): UnifiedMessage[] {
-  const merged = [...main.map(fromMain), ...extra.map(fromExtra)].filter((m) => !MARKER_KINDS.has(m.kind));
+  const merged = [...main.map(fromMain), ...extra.map(fromExtra)].filter((m) => !isSeenMarker(m.text));
   return merged.sort((a, b) => a.at - b.at);
 }
 

@@ -9,9 +9,10 @@ import MessageBubble from "@/components/MessageBubble";
 import Composer from "@/components/Composer";
 import { toast } from "@/lib/toast";
 import { chats, chatExtra } from "@/lib/services";
-import { otherUser, isNearBottom, threadChanged, buildThread, mergeThread } from "@/lib/chat";
+import { otherUser, isNearBottom, threadChanged, buildThread, mergeThread, latestPeerSeen, SEEN_MARKER } from "@/lib/chat";
 import { CHAT_SENT_EVENT } from "@/components/ChatList";
 import { useAuth } from "@/lib/auth";
+import { timeAgo } from "@/lib/utils";
 import type { ChatMessage, ExtraMessage, GifItem, MessageKind, UnifiedMessage } from "@/lib/types";
 import { BackIcon, PhoneIcon, VideoIcon } from "@/components/Icons";
 
@@ -29,16 +30,28 @@ export default function ConversationPage() {
   // marks them as still sending and keeps them from colliding with real ids.
   // Kept apart from `messages` so the 5s poll can't wipe them.
   const [pending, setPending] = useState<UnifiedMessage[]>([]);
+  // When the peer last read the thread (epoch-ms, 0 = never), from their "seen"
+  // markers. Neither API has real receipts; we synthesize them over ChatExtra.
+  const [peerSeenAt, setPeerSeenAt] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   // First paint jumps to the bottom instantly; later updates only follow if you
   // were already there. Without this the 5s poll yanks you down mid-scroll.
   const firstPaintRef = useRef(true);
+  // Last incoming message we've already acked with a seen marker, so viewing
+  // doesn't POST a duplicate marker on every poll.
+  const lastAckRef = useRef<string | null>(null);
 
   const rows = useMemo(
     () => buildThread([...messages, ...pending], user?.id),
     [messages, pending, user?.id],
   );
+
+  // Show "Seen" under my last delivered message once the peer's read marker
+  // reaches it. Suppressed while something of mine is still sending.
+  const lastServer = messages[messages.length - 1];
+  const showSeen =
+    pending.length === 0 && !!lastServer && lastServer.userId === user?.id && peerSeenAt >= lastServer.at;
 
   const loadMessages = useCallback(async () => {
     try {
@@ -51,10 +64,23 @@ export default function ConversationPage() {
       // Keep the old array reference when nothing changed, so effects keyed on
       // `messages` don't re-run every poll (scroll, and the reaction observer).
       setMessages((prev) => (threadChanged(prev, next) ? next : prev));
+
+      // Read receipts: the peer's newest seen marker says how far they've read.
+      setPeerSeenAt(latestPeerSeen(extra, user?.id));
+
+      // Having viewed the thread, ack the newest incoming message once — this is
+      // the marker the peer reads as our "Seen". It's a text message carrying the
+      // sentinel (the store rewrites custom types to "text"), filtered out of the
+      // thread and previews. Fire-and-forget.
+      const newest = next[next.length - 1];
+      if (user && newest && newest.userId !== user.id && lastAckRef.current !== newest.key) {
+        lastAckRef.current = newest.key;
+        chatExtra.send(chatId, user, "text", { text: SEEN_MARKER }).catch(() => {});
+      }
     } finally {
       setLoading(false);
     }
-  }, [chatId]);
+  }, [chatId, user]);
 
   // Resolve peer info from the chat list.
   useEffect(() => {
@@ -72,8 +98,10 @@ export default function ConversationPage() {
   useEffect(() => {
     setMessages([]);
     setPending([]);
+    setPeerSeenAt(0);
     setLoading(true);
     firstPaintRef.current = true;
+    lastAckRef.current = null;
   }, [chatId]);
 
   // Initial + polling load.
@@ -263,6 +291,11 @@ export default function ConversationPage() {
             />
           );
         })}
+        {showSeen && (
+          <div className="mt-1 pr-1 text-right text-[11px] text-neutral-500">
+            Seen {timeAgo(new Date(peerSeenAt).toISOString())}
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
 

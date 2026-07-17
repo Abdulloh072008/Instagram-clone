@@ -182,9 +182,10 @@ export interface ExtraMessage {
   createdAt: string;
 }
 
-// What a message can be, once the two stores are merged. "seen" is a read-
-// receipt marker, not a real bubble — mergeThread keeps it out of the thread.
-export type MessageKind = "text" | "image" | "gif" | "voice" | "sticker" | "seen";
+// What a message can be, once the two stores are merged. These are exactly the
+// types the ChatExtra store accepts — it silently rewrites anything else to
+// "text", which is why read receipts ride a sentinel text value, not a type.
+export type MessageKind = "text" | "image" | "gif" | "voice" | "sticker";
 
 /**
  * One thread item, normalized from either store so the UI treats them alike.
