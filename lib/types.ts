@@ -226,6 +226,30 @@ export interface GifItem {
   height: number;
 }
 
+// /Call/* (extra backend). The API carries call state and WebRTC signaling;
+// the media itself rides a peer connection negotiated over /Call/send-signal.
+export type CallType = "audio" | "video";
+export type CallStatus = "ringing" | "accepted" | "declined" | "ended";
+export interface CallInfo {
+  id: number;
+  callerId: string;
+  callerName: string;
+  calleeId: string;
+  calleeName: string;
+  type: CallType;
+  status: CallStatus;
+  createdAt: string;
+  endedAt: string | null;
+}
+export interface CallSignal {
+  id: number;
+  callId: number;
+  fromUserId: string;
+  kind: string; // "offer" | "answer" | "ice"
+  payload: string; // JSON-encoded SDP or ICE candidate
+  createdAt: string;
+}
+
 export type NotificationType = "like" | "comment" | "follow" | "mention";
 
 // Matches BACKEND-SPEC.md §1 (Notification controller — pending on the backend).

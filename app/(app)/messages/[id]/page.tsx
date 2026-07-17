@@ -7,6 +7,7 @@ import Avatar from "@/components/Avatar";
 import Skeleton from "@/components/Skeleton";
 import MessageBubble from "@/components/MessageBubble";
 import Composer from "@/components/Composer";
+import { useCall } from "@/components/CallProvider";
 import { toast } from "@/lib/toast";
 import { chats, chatExtra } from "@/lib/services";
 import { otherUser, isNearBottom, threadChanged, buildThread, mergeThread, latestPeerSeen, SEEN_MARKER } from "@/lib/chat";
@@ -23,6 +24,7 @@ export default function ConversationPage() {
   const params = useParams<{ id: string }>();
   const chatId = Number(params.id);
   const { user } = useAuth();
+  const { startCall, busy: callBusy } = useCall();
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [peer, setPeer] = useState<{ id: string; name: string; image: string | null } | null>(null);
@@ -253,8 +255,22 @@ export default function ConversationPage() {
           </Link>
         )}
         <div className="ml-auto flex items-center gap-5 text-neutral-200">
-          <PhoneIcon size={24} />
-          <VideoIcon size={24} />
+          <button
+            onClick={() => peer && startCall({ id: peer.id, name: peer.name }, "audio")}
+            disabled={!peer || callBusy}
+            aria-label="Audio call"
+            className="disabled:opacity-40"
+          >
+            <PhoneIcon size={24} />
+          </button>
+          <button
+            onClick={() => peer && startCall({ id: peer.id, name: peer.name }, "video")}
+            disabled={!peer || callBusy}
+            aria-label="Video call"
+            className="disabled:opacity-40"
+          >
+            <VideoIcon size={24} />
+          </button>
         </div>
       </header>
 

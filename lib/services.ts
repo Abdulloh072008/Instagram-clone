@@ -3,6 +3,9 @@ import { api, extraApi } from "./client";
 import type {
   AppNotification,
   AuthUser,
+  CallInfo,
+  CallSignal,
+  CallType,
   ChatListItem,
   ChatMessage,
   Envelope,
@@ -311,4 +314,28 @@ export const stickers = {
   packs: () => extraApi.get<Envelope<string[]>>("/Sticker/packs"),
   get: (pack: string) =>
     extraApi.get<Envelope<{ id: number; pack: string; name: string; url: string }[]>>("/Sticker/get", { pack }),
+};
+
+// ---------- Calls (extra backend) ----------
+// State + WebRTC signaling. Media is negotiated over send-signal/get-signals;
+// the API never touches audio/video itself.
+export const calls = {
+  start: (me: AuthUser, callee: { id: string; name: string }, type: CallType) =>
+    extraApi.postJson<Envelope<CallInfo>>("/Call/start", {
+      callerId: me.id,
+      callerName: me.userName,
+      calleeId: callee.id,
+      calleeName: callee.name,
+      type,
+    }),
+  incoming: (userId: string) => extraApi.get<Envelope<CallInfo[]>>("/Call/incoming", { userId }),
+  get: (callId: number) => extraApi.get<Envelope<CallInfo>>("/Call/get", { callId }),
+  history: (userId: string) => extraApi.get<Envelope<CallInfo[]>>("/Call/history", { userId }),
+  accept: (callId: number) => extraApi.put<Envelope<CallInfo>>("/Call/accept", { callId }),
+  decline: (callId: number) => extraApi.put<Envelope<CallInfo>>("/Call/decline", { callId }),
+  end: (callId: number) => extraApi.put<Envelope<CallInfo>>("/Call/end", { callId }),
+  sendSignal: (callId: number, fromUserId: string, kind: string, payload: string) =>
+    extraApi.postJson<Envelope<CallSignal>>("/Call/send-signal", { callId, fromUserId, kind, payload }),
+  getSignals: (callId: number, userId: string, sinceId: number) =>
+    extraApi.get<Envelope<CallSignal[]>>("/Call/get-signals", { callId, userId, sinceId }),
 };
