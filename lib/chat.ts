@@ -68,6 +68,31 @@ export type ThreadRow =
       endsGroup: boolean;
     };
 
+/**
+ * One-line inbox preview for a chat's most recent message, mirroring
+ * Instagram: your own messages read "You: …", attachments collapse to a label.
+ * Null (a chat with no messages yet) reads as an invitation, not a blank.
+ */
+export function previewText(msg: ChatMessage | null | undefined, myId?: string): string {
+  if (!msg) return "No messages yet";
+  const mine = msg.userId === myId;
+  const body = msg.messageText?.trim() ? msg.messageText.trim() : msg.file ? "📷 Photo" : "";
+  if (!body) return "No messages yet";
+  return mine ? `You: ${body}` : body;
+}
+
+/**
+ * Sort chats newest-activity-first for the inbox. `activityAt` maps chatId to
+ * the epoch-ms of its last message; chats we couldn't load (or that are empty)
+ * fall to the bottom. Returns a copy — never mutates the caller's array.
+ */
+export function sortByActivity<T extends { chatId: number }>(
+  chats: T[],
+  activityAt: Record<number, number>,
+): T[] {
+  return [...chats].sort((a, b) => (activityAt[b.chatId] ?? 0) - (activityAt[a.chatId] ?? 0));
+}
+
 function dateLabel(dateStr: string, now: number): string {
   const t = parseApiDate(dateStr);
   if (Number.isNaN(t)) return "";

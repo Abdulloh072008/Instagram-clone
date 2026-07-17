@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { otherUser, isNearBottom, threadChanged, buildThread, dayKey } from "./chat.ts";
+import { otherUser, isNearBottom, threadChanged, buildThread, dayKey, previewText, sortByActivity } from "./chat.ts";
 import type { ThreadRow } from "./chat.ts";
 import type { ChatListItem, ChatMessage } from "./types.ts";
 
@@ -137,4 +137,33 @@ test("buildThread: an empty thread yields no rows", () => {
 // Near UTC noon so the pair stays inside one local day for any real timezone.
 test("dayKey: two times an hour apart mid-day share a day", () => {
   assert.equal(dayKey("2026-07-17T12:00:00"), dayKey("2026-07-17T13:00:00"));
+});
+
+test("previewText: my own message is prefixed with You:", () => {
+  assert.equal(previewText(mkMsg(1, "me", "2026-07-17T10:00:00"), "me"), "You: x");
+});
+
+test("previewText: a message from the other side has no prefix", () => {
+  assert.equal(previewText(mkMsg(1, "you", "2026-07-17T10:00:00"), "me"), "x");
+});
+
+test("previewText: a photo with no text collapses to a label", () => {
+  const photo = { ...mkMsg(1, "you", "2026-07-17T10:00:00"), messageText: "", file: "/x.jpg" };
+  assert.equal(previewText(photo, "me"), "📷 Photo");
+});
+
+test("previewText: an empty chat reads as an invitation", () => {
+  assert.equal(previewText(null, "me"), "No messages yet");
+});
+
+test("sortByActivity: newest activity first, unknown chats last", () => {
+  const chats = [{ chatId: 1 }, { chatId: 2 }, { chatId: 3 }];
+  const order = sortByActivity(chats, { 1: 100, 2: 300 }).map((c) => c.chatId);
+  assert.deepEqual(order, [2, 1, 3]);
+});
+
+test("sortByActivity: does not mutate the input array", () => {
+  const chats = [{ chatId: 1 }, { chatId: 2 }];
+  sortByActivity(chats, { 2: 999 });
+  assert.deepEqual(chats.map((c) => c.chatId), [1, 2]);
 });

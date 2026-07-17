@@ -10,6 +10,7 @@ import Skeleton from "@/components/Skeleton";
 import { toast } from "@/lib/toast";
 import { chats } from "@/lib/services";
 import { otherUser, isNearBottom, threadChanged, buildThread } from "@/lib/chat";
+import { CHAT_SENT_EVENT } from "@/components/ChatList";
 import { useAuth } from "@/lib/auth";
 import { parseApiDate } from "@/lib/utils";
 import type { ChatMessage } from "@/lib/types";
@@ -151,6 +152,7 @@ export default function ConversationPage() {
     try {
       await chats.send(chatId, body, sentFile ?? undefined);
       await loadMessages();
+      window.dispatchEvent(new Event(CHAT_SENT_EVENT)); // nudge the inbox to re-sort
     } catch {
       toast("Couldn't send your message");
       reset({ text: body }); // put their words back so nothing is lost
