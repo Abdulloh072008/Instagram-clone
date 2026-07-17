@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { signIn, signOut, useSession } from "next-auth/react";
 import { useAuth } from "@/lib/auth";
 import { EXTRA_API_BASE } from "@/lib/config";
-import { bindGoogleEmailToCurrent } from "@/lib/glink";
+import { saveGlink } from "@/lib/glink";
 
 interface Link {
   id: number;
@@ -55,12 +55,12 @@ export default function ConnectedAccounts() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
-  // Google привязан и ты залогинен — связываем логин/пароль этого аккаунта с
-  // Google-почтой, чтобы вход через Google попадал именно в него (см. lib/glink).
-  // Данные аккаунта берутся из того, что сохранено при обычном входе.
+  // Google привязан и ты залогинен — запоминаем, к какому аккаунту (userId+userName)
+  // относится эта почта, чтобы вход через Google попадал именно в него (см. lib/glink).
+  // Пароль тут недоступен, но username известен — его и используем при входе.
   useEffect(() => {
-    if (link?.email && user?.id) bindGoogleEmailToCurrent(user.id, link.email);
-  }, [link?.email, user?.id]);
+    if (link?.email && user?.id && user.userName) saveGlink(link.email, user.id, user.userName);
+  }, [link?.email, user?.id, user?.userName]);
 
   // Привязать текущую Google-сессию к аккаунту softclub.
   const linkGoogle = async () => {
@@ -80,9 +80,9 @@ export default function ConnectedAccounts() {
     });
     const j = await res.json().catch(() => null);
     if (j?.statusCode === 200) {
-      // Связываем логин/пароль ЭТОГО аккаунта с Google-почтой, чтобы вход
-      // через Google попадал именно сюда (а не создавал новый аккаунт).
-      bindGoogleEmailToCurrent(user.id, gs.user.email ?? "");
+      // Запоминаем связь почты с ЭТИМ аккаунтом, чтобы вход через Google попадал
+      // именно сюда (а не создавал новый аккаунт).
+      saveGlink(gs.user.email ?? "", user.id, user.userName);
       setMsg("Google привязан ✓");
       await load();
     } else setMsg(j?.errors?.[0] ?? "Не удалось привязать");

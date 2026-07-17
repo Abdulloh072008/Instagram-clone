@@ -6,7 +6,13 @@ import { signIn, signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth";
-import { rememberLinkedCreds, credForGoogleEmail } from "@/lib/glink";
+import {
+  rememberLinkedCreds,
+  credForGoogleEmail,
+  glinkForEmail,
+  saveGcred,
+  type Glink,
+} from "@/lib/glink";
 
 type Fields = { userName: string; password: string };
 
@@ -16,6 +22,11 @@ export default function LoginPage() {
   const router = useRouter();
   const bridging = useRef(false);
   const [showPw, setShowPw] = useState(false);
+  // Привязанный аккаунт, для которого нужно ввести пароль (вход через Google).
+  const [linkedAcct, setLinkedAcct] = useState<Glink | null>(null);
+  const [linkPw, setLinkPw] = useState("");
+  const [linkBusy, setLinkBusy] = useState(false);
+  const [linkErr, setLinkErr] = useState("");
   const {
     register,
     handleSubmit,
@@ -27,11 +38,11 @@ export default function LoginPage() {
     if (!loading && user) router.replace("/");
   }, [loading, user, router]);
 
-  // Мостик Google → приложение. У Google-сессии нет softclub-токена, а вход в
-  // приложение идёт по нему. Логика:
-  //  1) если Google-почта ПРИВЯЗАНА к аккаунту (сохранены логин/пароль) —
-  //     логинимся заново именно в ТОТ аккаунт (а не создаём новый);
-  //  2) иначе — детерминированный авто-аккаунт по почте (первый вход через Google).
+  // Мостик Google → приложение. У Google-сессии нет softclub-токена, а вход идёт
+  // по нему. Порядок:
+  //  1) сохранённые логин/пароль привязанного аккаунта → тихий вход;
+  //  2) почта привязана к аккаунту (знаем username) → просим пароль ОДИН раз;
+  //  3) почта нигде не привязана → детерминированный авто-аккаунт (первый вход).
   useEffect(() => {
     if (loading || user || bridging.current) return;
     const email = googleSession?.user?.email;
@@ -39,19 +50,27 @@ export default function LoginPage() {
     bridging.current = true;
 
     (async () => {
-      // (1) привязанный аккаунт — свежий вход по сохранённым данным
-      const linked = credForGoogleEmail(email);
-      if (linked) {
+      // (1) есть сохранённые креды привязанного аккаунта — входим тихо
+      const cred = credForGoogleEmail(email);
+      if (cred) {
         try {
-          await login(linked.userName, linked.password);
+          await login(cred.userName, cred.password);
           router.replace("/");
           return;
         } catch {
-          // пароль сменили/устарел — падаем на авто-аккаунт ниже
+          // пароль сменили/устарел — попросим ввести заново ниже
         }
       }
 
-      // (2) авто-аккаунт по почте (детерминированные логин/пароль)
+      // (2) знаем, что почта привязана к аккаунту <userName> — просим его пароль
+      const g = glinkForEmail(email);
+      if (g) {
+        setLinkedAcct(g);
+        bridging.current = false; // ждём ввод пароля пользователем
+        return;
+      }
+
+      // (3) почта нигде не привязана — детерминированный авто-аккаунт по почте
       const clean = email.replace(/[^a-z0-9]/gi, "").toLowerCase();
       const uname = ("g" + clean).slice(0, 24);
       const pass = "Gg1!" + clean.slice(0, 16);
@@ -79,18 +98,74 @@ export default function LoginPage() {
     try {
       await login(userName.trim(), password);
       // Запомнить данные аккаунта для входа через привязанный Google (см. lib/glink).
-      await rememberLinkedCreds(userName.trim(), password);
+      rememberLinkedCreds(userName.trim(), password);
       router.replace("/");
     } catch (err) {
       setError("root", { message: err instanceof Error ? err.message : "Логин ноком шуд" });
     }
   });
 
+  // Вход в привязанный аккаунт по введённому паролю (когда сохранённых кредов нет).
+  // После успеха запоминаем — следующие входы через Google будут без пароля.
+  const submitLinkedLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!linkedAcct || !linkPw) return;
+    setLinkBusy(true);
+    setLinkErr("");
+    try {
+      await login(linkedAcct.userName, linkPw);
+      saveGcred(googleSession?.user?.email ?? "", linkedAcct.userName, linkPw);
+      rememberLinkedCreds(linkedAcct.userName, linkPw);
+      router.replace("/");
+    } catch {
+      setLinkErr("Неверный пароль. Попробуй ещё раз.");
+      setLinkBusy(false);
+    }
+  };
+
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="rounded-2xl border border-line bg-elevated px-8 py-10">
           <h1 className="mb-8 text-center text-4xl font-semibold tracking-tight">Instagram</h1>
+
+          {linkedAcct && (
+            <div className="mb-5 rounded-xl border border-ig-blue/40 bg-ig-blue/5 p-4">
+              <p className="mb-3 text-sm leading-snug text-neutral-200">
+                Google привязан к аккаунту <b>@{linkedAcct.userName}</b>. Введи его пароль, чтобы войти именно в него.
+              </p>
+              <form onSubmit={submitLinkedLogin} className="flex flex-col gap-2">
+                <input
+                  type="password"
+                  value={linkPw}
+                  onChange={(e) => setLinkPw(e.target.value)}
+                  placeholder={`Пароль @${linkedAcct.userName}`}
+                  autoFocus
+                  className="rounded-lg border border-line bg-neutral-900 px-3 py-2.5 text-sm outline-none focus:border-neutral-500"
+                />
+                <button
+                  type="submit"
+                  disabled={linkBusy || !linkPw}
+                  className="rounded-lg bg-ig-blue py-2.5 text-sm font-semibold text-white transition hover:bg-ig-blue-hover disabled:opacity-50"
+                >
+                  {linkBusy ? "Вход…" : `Войти как @${linkedAcct.userName}`}
+                </button>
+                {linkErr && <p className="text-center text-sm text-ig-red">{linkErr}</p>}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLinkedAcct(null);
+                    setLinkPw("");
+                    setLinkErr("");
+                  }}
+                  className="text-xs text-neutral-500 hover:text-neutral-300"
+                >
+                  Это не мой аккаунт — войти иначе
+                </button>
+              </form>
+            </div>
+          )}
+
           <form onSubmit={onSubmit} className="flex flex-col gap-2.5">
             <input
               {...register("userName", { required: true })}

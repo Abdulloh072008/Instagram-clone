@@ -1,75 +1,74 @@
 // Мост «вход через Google → тот же softclub-аккаунт, к которому привязана почта».
 //
-// softclub — закрытое API: по Google-почте оно НЕ выдаёт токен чужого аккаунта.
-// Поэтому единственный надёжный способ войти именно в привязанный аккаунт —
-// заново залогиниться его логином/паролем. Пароль доступен только в момент
-// обычного входа, поэтому мы сохраняем его локально (этот браузер) и связываем
-// с Google-почтой. При входе через Google — берём эти данные и логинимся заново
-// (свежая сессия, без «протухания» токена).
+// softclub — закрытое API: по Google-почте оно НЕ выдаёт токен чужого аккаунта,
+// а войти можно только логином+паролем. Пароль виден лишь в момент входа, поэтому:
 //
-// Хранится device-local (localStorage). Это осознанный компромисс демо-проекта:
-// пароль не покидает устройство и никуда не отправляется. См. [[account-link-flow]].
-
-import { EXTRA_API_BASE } from "@/lib/config";
-import { getToken } from "@/lib/client";
+//  • при обычном входе запоминаем логин/пароль локально (этот браузер);
+//  • при привязке в настройках запоминаем, к какому аккаунту (userId+userName)
+//    относится Google-почта — пароль там недоступен, но username мы знаем;
+//  • при входе через Google: если креды сохранены — входим тихо; иначе, зная
+//    что почта привязана к аккаунту <userName>, просим ввести его пароль ОДИН раз
+//    и дальше запоминаем (следующие входы — без пароля).
+//
+// Всё хранится device-local (localStorage) и никуда не отправляется. Это
+// осознанный компромисс демо-проекта — softclub федерации токенов не даёт.
 
 type Cred = { userName: string; password: string };
+export type Glink = { userId: string; userName: string };
 
 const norm = (e: string) => e.trim().toLowerCase();
 const credKey = (uid: string) => "sc_cred:" + uid;
 const gcredKey = (email: string) => "sc_gcred:" + norm(email);
+const glinkKey = (email: string) => "sc_glink:" + norm(email);
 
-/** userId текущей softclub-сессии из JWT (claim sid). */
-function uidFromToken(): string | null {
+function read<T>(key: string): T | null {
+  if (typeof window === "undefined") return null;
   try {
-    const t = getToken();
-    if (!t) return null;
-    const p = JSON.parse(atob(t.split(".")[1]));
-    return p.sid ?? p.nameid ?? p.sub ?? null;
+    const raw = localStorage.getItem(key);
+    return raw ? (JSON.parse(raw) as T) : null;
   } catch {
     return null;
   }
+}
+
+function write(key: string, value: unknown): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {}
+}
+
+/** Запомнить логин/пароль текущего аккаунта (вызывать после успешного входа). */
+export function rememberLinkedCreds(userName: string, password: string): void {
+  // Кладём и под username (для сопоставления с привязкой), чтобы вход через
+  // Google в этот аккаунт стал беспарольным на этом устройстве.
+  write(credKey(norm(userName)), { userName, password } satisfies Cred);
+}
+
+/** Прямо связать логин/пароль с Google-почтой (гарантированно, без бэкенда). */
+export function saveGcred(email: string, userName: string, password: string): void {
+  if (!email) return;
+  write(gcredKey(email), { userName, password } satisfies Cred);
 }
 
 /**
- * Вызывать после успешного обычного входа. Сохраняет логин/пароль текущего
- * аккаунта и, если к нему УЖЕ привязан Google, сразу связывает эти данные с
- * Google-почтой — тогда вход через Google попадёт именно в этот аккаунт.
+ * Привязка в настройках: пароля нет, но известны userId+userName. Запоминаем,
+ * к какому аккаунту относится почта, и — если пароль этого аккаунта уже был
+ * сохранён при входе — сразу делаем вход через Google беспарольным.
  */
-export async function rememberLinkedCreds(userName: string, password: string): Promise<void> {
-  if (typeof window === "undefined") return;
-  const uid = uidFromToken();
-  if (!uid) return;
-  const cred: Cred = { userName, password };
-  try {
-    localStorage.setItem(credKey(uid), JSON.stringify(cred));
-  } catch {}
-  // Уже привязанный Google-аккаунт? Свяжем его почту с этими данными.
-  try {
-    const r = await fetch(`${EXTRA_API_BASE}/AccountLink/get?userId=${encodeURIComponent(uid)}`);
-    const j = await r.json().catch(() => null);
-    const links: Array<{ provider: string; email: string }> = j?.data ?? [];
-    const g = links.find((l) => l.provider === "google");
-    if (g?.email) localStorage.setItem(gcredKey(g.email), JSON.stringify(cred));
-  } catch {}
+export function saveGlink(email: string, userId: string, userName: string): void {
+  if (!email || !userName) return;
+  write(glinkKey(email), { userId, userName } satisfies Glink);
+  const cred = read<Cred>(credKey(norm(userName)));
+  if (cred) saveGcred(email, cred.userName, cred.password);
 }
 
-/** Связать сохранённые данные текущего аккаунта с Google-почтой (при привязке в настройках). */
-export function bindGoogleEmailToCurrent(userId: string, email: string): void {
-  if (typeof window === "undefined" || !email) return;
-  try {
-    const cred = localStorage.getItem(credKey(userId));
-    if (cred) localStorage.setItem(gcredKey(email), cred);
-  } catch {}
-}
-
-/** Данные привязанного аккаунта по Google-почте (для входа через Google). */
+/** Сохранённые логин/пароль привязанного аккаунта по Google-почте (для тихого входа). */
 export function credForGoogleEmail(email: string): Cred | null {
-  if (typeof window === "undefined" || !email) return null;
-  try {
-    const raw = localStorage.getItem(gcredKey(email));
-    return raw ? (JSON.parse(raw) as Cred) : null;
-  } catch {
-    return null;
-  }
+  return email ? read<Cred>(gcredKey(email)) : null;
+}
+
+/** К какому аккаунту (userId+userName) привязана Google-почта — чтобы спросить пароль. */
+export function glinkForEmail(email: string): Glink | null {
+  return email ? read<Glink>(glinkKey(email)) : null;
 }
