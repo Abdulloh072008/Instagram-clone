@@ -44,6 +44,7 @@ export default function CallProvider({ children }: { children: React.ReactNode }
   const stateTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement>(null);
   const ringRef = useRef<ReturnType<typeof createRingtone> | null>(null);
 
   const teardown = useCallback(() => {
@@ -68,12 +69,23 @@ export default function CallProvider({ children }: { children: React.ReactNode }
     setCall(null);
   }, [teardown]);
 
-  // Bind streams to the <video> elements whenever they change.
+  // Bind streams to the media elements whenever they change. Remote audio always
+  // plays through a dedicated <audio> sink so audio-only calls are audible too;
+  // the remote <video> is muted to avoid the sound playing twice on video calls.
   useEffect(() => {
     if (localVideoRef.current) localVideoRef.current.srcObject = localStream;
   }, [localStream, phase]);
   useEffect(() => {
-    if (remoteVideoRef.current) remoteVideoRef.current.srcObject = remoteStream;
+    const v = remoteVideoRef.current;
+    if (v) {
+      v.srcObject = remoteStream;
+      if (remoteStream) v.play().catch(() => {});
+    }
+    const a = remoteAudioRef.current;
+    if (a) {
+      a.srcObject = remoteStream;
+      if (remoteStream) a.play().catch(() => {});
+    }
   }, [remoteStream, phase]);
 
   const createPC = useCallback(
@@ -302,8 +314,10 @@ export default function CallProvider({ children }: { children: React.ReactNode }
       {(phase === "outgoing" || phase === "connecting" || phase === "active") && call && (
         <div className="fixed inset-0 z-60 flex flex-col bg-neutral-950">
           <div className="relative flex flex-1 items-center justify-center overflow-hidden">
+            {/* Remote audio sink — always present so both audio and video calls are audible. */}
+            <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
             {isVideo && remoteStream ? (
-              <video ref={remoteVideoRef} autoPlay playsInline className="h-full w-full object-cover" />
+              <video ref={remoteVideoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
             ) : (
               <div className="flex flex-col items-center gap-4">
                 <Avatar src={null} name={peerName} size={112} />
