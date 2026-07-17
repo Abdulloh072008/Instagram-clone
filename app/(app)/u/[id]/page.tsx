@@ -21,6 +21,7 @@ export default function UserProfilePage() {
 
   const isMe = user?.id === id;
 
+  // Profile + posts от softclub — только это блокирует показ профиля.
   useEffect(() => {
     if (!id) return;
     setLoading(true);
@@ -28,18 +29,22 @@ export default function UserProfilePage() {
       profiles.byId(id),
       postsApi.byUser(id, 1, 30),
       profiles.isFollowing(id).catch(() => ({ data: false })),
-      privacy.get(id).catch(() => null),
-      user?.id ? followRequests.status(user.id, id).catch(() => null) : Promise.resolve(null),
     ])
-      .then(([p, posts, follow, priv, st]) => {
+      .then(([p, posts, follow]) => {
         setProfile(p.data);
         setUserPosts(posts.data ?? []);
         setFollowing(Boolean((follow as { data: boolean }).data));
-        setIsPrivate(Boolean((priv as { data?: { isPrivate?: boolean } } | null)?.data?.isPrivate));
-        setReqStatus((st as { data?: string } | null)?.data ?? "none");
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+  }, [id]);
+
+  // Приватность/статус запроса — доп-бэк (Render), НЕ блокирует показ профиля:
+  // если бэкенд «спит», профиль всё равно открывается сразу.
+  useEffect(() => {
+    if (!id) return;
+    privacy.get(id).then((r) => setIsPrivate(Boolean(r.data?.isPrivate))).catch(() => {});
+    if (user?.id) followRequests.status(user.id, id).then((r) => setReqStatus(r.data ?? "none")).catch(() => {});
   }, [id, user?.id]);
 
   if (loading || !profile) {
