@@ -8,13 +8,19 @@ import { useAuth } from "@/lib/auth";
 import { PhoneIcon, VideoIcon, MicIcon } from "./Icons";
 import type { CallInfo, CallType } from "@/lib/types";
 
-// Public STUN only. Same-machine and same-Wi-Fi calls connect; calls across
-// different NATs need a TURN relay this project doesn't have, and will often
-// fail to connect — see the grilling notes.
+// STUN finds your public address; TURN *relays* media when the two peers are on
+// different NATs (home ↔ mobile), which STUN alone can't traverse. Without a TURN
+// relay, ontrack still fires (so the call looks connected) but no audio/video ever
+// flows — exactly the "no sound / black video" symptom. These are the free public
+// Open Relay TURN servers; for heavy use, run your own coturn.
 const RTC_CONFIG: RTCConfiguration = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun.relay.metered.ca:80" },
+    { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
+    { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" },
+    { urls: "turn:openrelay.metered.ca:443?transport=tcp", username: "openrelayproject", credential: "openrelayproject" },
   ],
 };
 
@@ -45,6 +51,8 @@ export default function CallProvider({ children }: { children: React.ReactNode }
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
+  // ICE-кандидаты, пришедшие ДО remoteDescription — держим, пока её не поставим.
+  const pendingIce = useRef<RTCIceCandidateInit[]>([]);
   const ringRef = useRef<ReturnType<typeof createRingtone> | null>(null);
 
   const teardown = useCallback(() => {
@@ -56,6 +64,7 @@ export default function CallProvider({ children }: { children: React.ReactNode }
     pcRef.current = null;
     localRef.current?.getTracks().forEach((t) => t.stop());
     localRef.current = null;
+    pendingIce.current = [];
     setLocalStream(null);
     setRemoteStream(null);
     setMuted(false);
@@ -115,6 +124,19 @@ export default function CallProvider({ children }: { children: React.ReactNode }
     return stream;
   }, []);
 
+  // Flush ICE candidates that arrived before the remote description was set.
+  const flushIce = useCallback(async (pc: RTCPeerConnection) => {
+    const queued = pendingIce.current;
+    pendingIce.current = [];
+    for (const c of queued) {
+      try {
+        await pc.addIceCandidate(c);
+      } catch {
+        /* stale candidate — ignore */
+      }
+    }
+  }, []);
+
   // Apply one incoming signal to the peer connection.
   const applySignal = useCallback(
     async (callId: number, myId: string, kind: string, payload: string) => {
@@ -126,16 +148,23 @@ export default function CallProvider({ children }: { children: React.ReactNode }
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           await calls.sendSignal(callId, myId, "answer", JSON.stringify(answer));
+          await flushIce(pc);
         } else if (kind === "answer") {
-          if (pc.signalingState === "have-local-offer") await pc.setRemoteDescription(JSON.parse(payload));
+          if (pc.signalingState === "have-local-offer") {
+            await pc.setRemoteDescription(JSON.parse(payload));
+            await flushIce(pc);
+          }
         } else if (kind === "ice") {
-          await pc.addIceCandidate(JSON.parse(payload));
+          const cand = JSON.parse(payload) as RTCIceCandidateInit;
+          // addIceCandidate throws if there's no remote description yet — buffer instead.
+          if (pc.remoteDescription?.type) await pc.addIceCandidate(cand);
+          else pendingIce.current.push(cand);
         }
       } catch {
         /* out-of-order or duplicate signal — ignore */
       }
     },
-    [],
+    [flushIce],
   );
 
   const startSignalPoll = useCallback(
@@ -314,11 +343,19 @@ export default function CallProvider({ children }: { children: React.ReactNode }
       {(phase === "outgoing" || phase === "connecting" || phase === "active") && call && (
         <div className="fixed inset-0 z-60 flex flex-col bg-neutral-950">
           <div className="relative flex flex-1 items-center justify-center overflow-hidden">
-            {/* Remote audio sink — always present so both audio and video calls are audible. */}
-            <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
-            {isVideo && remoteStream ? (
-              <video ref={remoteVideoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
-            ) : (
+            {/* Remote video — mounted for the whole video call so the ref binds
+                reliably; hidden until the stream arrives. Muted on purpose: sound
+                plays through the <audio> sink below (which also covers voice calls). */}
+            {isVideo && (
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className={`h-full w-full object-cover ${remoteStream ? "" : "hidden"}`}
+              />
+            )}
+            {(!isVideo || !remoteStream) && (
               <div className="flex flex-col items-center gap-4">
                 <Avatar src={null} name={peerName} size={112} />
                 <p className="text-xl font-semibold">{peerName}</p>
@@ -338,6 +375,9 @@ export default function CallProvider({ children }: { children: React.ReactNode }
                 className="absolute bottom-4 right-4 h-40 w-28 rounded-lg border border-line object-cover"
               />
             )}
+
+            {/* Remote audio sink — always mounted so BOTH voice and video calls have sound. */}
+            <audio ref={remoteAudioRef} autoPlay />
           </div>
 
           {/* controls */}

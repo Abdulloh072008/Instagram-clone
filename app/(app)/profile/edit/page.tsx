@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
+import ConnectedAccounts from "@/components/ConnectedAccounts";
+import PrivacyToggle from "@/components/PrivacyToggle";
 import Skeleton from "@/components/Skeleton";
 import { toast } from "@/lib/toast";
 import { profiles } from "@/lib/services";
@@ -132,6 +134,9 @@ export default function EditProfilePage() {
       <p className="mt-6 text-xs text-neutral-600">
         Note: the backend only allows updating your photo, bio and gender.
       </p>
+
+      <PrivacyToggle />
+      <ConnectedAccounts />
     </div>
   );
 }

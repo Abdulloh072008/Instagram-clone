@@ -31,7 +31,21 @@ export default function StoriesBar() {
   const [loading, setLoading] = useState(true);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  useEffect(() => setSeen(loadSeen()), []);
+  // Seen-state: localStorage first (instant), then merge cross-device views
+  // from the companion backend so the grey ring is consistent across devices.
+  useEffect(() => {
+    setSeen(loadSeen());
+    if (user?.id) {
+      storiesApi
+        .viewed(user.id)
+        .then((res) => {
+          const ids = res.data ?? [];
+          if (ids.length) setSeen((prev) => new Set([...prev, ...ids]));
+        })
+        .catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // Re-run after an upload too; loading is already false by then, so no reflash.
   // The feed isn't filtered server-side, so it's paired with the follow list and

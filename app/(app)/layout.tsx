@@ -7,6 +7,7 @@ import Sidebar from "@/components/Sidebar";
 import MobileNav from "@/components/MobileNav";
 import CallProvider from "@/components/CallProvider";
 import Skeleton, { PostCardSkeleton } from "@/components/Skeleton";
+import { presence } from "@/lib/services";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -15,6 +16,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
   }, [loading, user, router]);
+
+  // Presence: пока приложение открыто, каждые ~30с отмечаемся «в сети».
+  useEffect(() => {
+    if (!user?.id) return;
+    const ping = () => presence.heartbeat(user.id).catch(() => {});
+    ping();
+    const t = setInterval(ping, 30_000);
+    return () => clearInterval(t);
+  }, [user?.id]);
 
   // Auth resolves from localStorage in one tick, so this rarely paints — it
   // covers the gap before the redirect to /login when there's no token.
