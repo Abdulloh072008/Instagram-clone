@@ -166,6 +166,65 @@ export interface ChatMessage {
   file: string | null;
 }
 
+// Message from the extra backend's parallel store (/ChatExtra/get). No JWT, so
+// the sender travels explicitly; carries the types the main store can't hold.
+// Note: createdAt comes back WITHOUT a trailing Z — always parseApiDate it.
+export interface ExtraMessage {
+  id: number;
+  chatId: number;
+  senderId: string;
+  senderName: string;
+  type: string;
+  text: string | null;
+  mediaUrl: string | null;
+  fileName: string | null;
+  durationSec: number | null;
+  createdAt: string;
+}
+
+// What a message can be, once the two stores are merged. "seen" is a read-
+// receipt marker, not a real bubble — mergeThread keeps it out of the thread.
+export type MessageKind = "text" | "image" | "gif" | "voice" | "sticker" | "seen";
+
+/**
+ * One thread item, normalized from either store so the UI treats them alike.
+ * `store` + `id` say where it really lives (for delete/react); `key` is a
+ * React key unique across both stores; `at` is the parsed epoch-ms for sorting.
+ */
+export interface UnifiedMessage {
+  key: string;
+  store: "main" | "extra";
+  id: number;
+  userId: string;
+  userName: string;
+  userImage: string | null;
+  text: string;
+  file: string | null;
+  kind: MessageKind;
+  at: number;
+  date: string;
+  durationSec: number | null;
+  sending?: boolean;
+}
+
+// /MessageReaction/get — same tally shape the story reactions use.
+export interface MessageReactions {
+  total: number;
+  summary: { emoji: string; count: number }[];
+  mine: string | null;
+  reactions: { id: number; messageId: number; userId: string; userName: string; emoji: string; createdAt: string }[];
+}
+
+// /Gif/search|trending — Giphy-backed.
+export interface GifItem {
+  id: string;
+  url: string;
+  preview: string;
+  title: string;
+  width: number;
+  height: number;
+}
+
 export type NotificationType = "like" | "comment" | "follow" | "mention";
 
 // Matches BACKEND-SPEC.md §1 (Notification controller — pending on the backend).

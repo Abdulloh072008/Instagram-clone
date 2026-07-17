@@ -6,7 +6,10 @@ import type {
   ChatListItem,
   ChatMessage,
   Envelope,
+  ExtraMessage,
   FollowListItem,
+  GifItem,
+  MessageReactions,
   Paged,
   Post,
   Repost,
@@ -241,4 +244,69 @@ export const chats = {
   // is silently ignored and nothing gets deleted. Verified against the live spec.
   deleteMessage: (messageId: number) => api.del("/Chat/delete-message", { massageId: messageId }),
   deleteChat: (chatId: number) => api.del("/Chat/delete-chat", { chatId }),
+};
+
+// ---------- Rich messages (extra backend, no JWT: sender is explicit) ----------
+// A parallel per-chat store keyed by the same chatId. Holds what main /Chat
+// can't: gif/voice/sticker, plus "seen" read-receipt markers. Only this client
+// sees these — the main API and other clients never do.
+export const chatExtra = {
+  get: (chatId: number, type?: string) =>
+    extraApi.get<Envelope<ExtraMessage[]>>("/ChatExtra/get", { chatId, type }),
+
+  // JSON send for anything whose media is already a URL (gif, sticker).
+  send: (chatId: number, me: AuthUser, kind: string, opts: { text?: string; mediaUrl?: string }) =>
+    extraApi.postJson<Envelope<ExtraMessage>>("/ChatExtra/send", {
+      chatId,
+      senderId: me.id,
+      senderName: me.userName,
+      type: kind,
+      text: opts.text ?? null,
+      mediaUrl: opts.mediaUrl ?? null,
+      fileName: null,
+    }),
+
+  // Multipart send for a recorded blob (voice notes).
+  sendFile: (chatId: number, me: AuthUser, kind: string, file: File, durationSec?: number, text?: string) => {
+    const form = new FormData();
+    form.append("ChatId", String(chatId));
+    form.append("SenderId", me.id);
+    form.append("SenderName", me.userName);
+    form.append("Type", kind);
+    form.append("File", file);
+    if (durationSec != null) form.append("DurationSec", String(Math.round(durationSec)));
+    if (text) form.append("Text", text);
+    return extraApi.postForm<Envelope<ExtraMessage>>("/ChatExtra/send-file", form);
+  },
+
+  remove: (id: number) => extraApi.del("/ChatExtra/delete", { id }),
+};
+
+// ---------- Message reactions (extra backend) ----------
+// Keyed by a messageId that spans both stores via reactionKey() — see lib/chat.
+export const messageReactions = {
+  get: (messageId: number, userId?: string) =>
+    extraApi.get<Envelope<MessageReactions>>("/MessageReaction/get", { messageId, userId }),
+  add: (messageId: number, me: AuthUser, emoji: string) =>
+    extraApi.postJson("/MessageReaction/add", {
+      messageId,
+      userId: me.id,
+      userName: me.userName,
+      emoji,
+    }),
+  remove: (messageId: number, userId: string) =>
+    extraApi.del("/MessageReaction/remove", { messageId, userId }),
+};
+
+// ---------- GIFs & stickers (extra backend) ----------
+export const gifs = {
+  trending: (limit = 24) => extraApi.get<Envelope<GifItem[]>>("/Gif/trending", { limit }),
+  search: (q: string, limit = 24, offset = 0) =>
+    extraApi.get<Envelope<GifItem[]>>("/Gif/search", { q, limit, offset }),
+};
+
+export const stickers = {
+  packs: () => extraApi.get<Envelope<string[]>>("/Sticker/packs"),
+  get: (pack: string) =>
+    extraApi.get<Envelope<{ id: string; pack: string; name: string; url: string }[]>>("/Sticker/get", { pack }),
 };

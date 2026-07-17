@@ -1,4 +1,4 @@
-import type { ChatListItem, ChatMessage } from "./types";
+import type { ChatListItem, ChatMessage, ExtraMessage, MessageKind, UnifiedMessage } from "./types";
 import { parseApiDate } from "./utils.ts";
 
 /**
@@ -15,6 +15,89 @@ export function otherUser(chat: ChatListItem, myId?: string) {
   };
 }
 
+// ---------- Two stores, one thread ----------
+
+const KNOWN_KINDS: MessageKind[] = ["text", "image", "gif", "voice", "sticker", "seen"];
+
+// Kinds that are bookkeeping, not conversation — kept out of the visible thread
+// and out of inbox previews. "seen" is a read receipt written as a message.
+const MARKER_KINDS = new Set<MessageKind>(["seen"]);
+
+// ChatExtra ids start at 1 and share no space with main /Chat ids, so a bare
+// messageId would let a reaction on extra #5 land on main #5. Offsetting the
+// extra store into a disjoint range makes the collision impossible. See
+// reactionKey; the assumption (main ids never reach a billion) is pinned by a test.
+export const EXTRA_ID_OFFSET = 1_000_000_000;
+
+/** Stable, collision-proof key to react to a message across both stores. */
+export function reactionKey(msg: { store: "main" | "extra"; id: number }): number {
+  return msg.store === "extra" ? msg.id + EXTRA_ID_OFFSET : msg.id;
+}
+
+function coerceKind(type: string | null | undefined): MessageKind {
+  return (KNOWN_KINDS as string[]).includes(type ?? "") ? (type as MessageKind) : "text";
+}
+
+/** Normalize a main /Chat message into the unified shape. */
+export function fromMain(m: ChatMessage): UnifiedMessage {
+  return {
+    key: `m${m.messageId}`,
+    store: "main",
+    id: m.messageId,
+    userId: m.userId,
+    userName: m.userName,
+    userImage: m.userImage,
+    text: m.messageText ?? "",
+    file: m.file ?? null,
+    kind: m.file ? "image" : "text",
+    at: parseApiDate(m.sendMassageDate),
+    date: m.sendMassageDate,
+    durationSec: null,
+  };
+}
+
+/** Normalize a ChatExtra message into the unified shape. */
+export function fromExtra(e: ExtraMessage): UnifiedMessage {
+  return {
+    key: `x${e.id}`,
+    store: "extra",
+    id: e.id,
+    userId: e.senderId,
+    userName: e.senderName,
+    userImage: null, // ChatExtra doesn't store a sender image
+    text: e.text ?? "",
+    file: e.mediaUrl ?? null,
+    kind: coerceKind(e.type),
+    at: parseApiDate(e.createdAt),
+    date: e.createdAt,
+    durationSec: e.durationSec ?? null,
+  };
+}
+
+/**
+ * Merge the two message stores into one time-ordered thread. Marker messages
+ * (read receipts) are dropped here so they never render as bubbles. Safe to
+ * sort by `at` across stores: the two servers' clocks agree to within seconds
+ * (measured), and both dates go through parseApiDate so ChatExtra's missing-Z
+ * timestamps don't drift a whole timezone.
+ */
+export function mergeThread(main: ChatMessage[], extra: ExtraMessage[]): UnifiedMessage[] {
+  const merged = [...main.map(fromMain), ...extra.map(fromExtra)].filter((m) => !MARKER_KINDS.has(m.kind));
+  return merged.sort((a, b) => a.at - b.at);
+}
+
+/**
+ * The thread polls every few seconds and rebuilds its array even when nothing
+ * changed. Comparing length and the last message's key tells "genuinely new"
+ * from "same thread, fresh reference", so the UI can skip re-render churn and
+ * the auto-scroll decision.
+ */
+export function threadChanged(prev: UnifiedMessage[], next: UnifiedMessage[]) {
+  if (prev.length !== next.length) return true;
+  if (next.length === 0) return false;
+  return prev[prev.length - 1]?.key !== next[next.length - 1]?.key;
+}
+
 /**
  * The thread polls every few seconds and rebuilds its message array even when
  * nothing changed. Auto-scrolling on every rebuild yanks you to the bottom
@@ -23,18 +106,6 @@ export function otherUser(chat: ChatListItem, myId?: string) {
  */
 export function isNearBottom(el: { scrollHeight: number; scrollTop: number; clientHeight: number }, threshold = 120) {
   return el.scrollHeight - el.scrollTop - el.clientHeight <= threshold;
-}
-
-/**
- * Two consecutive polls describe the same thread unless a message was added or
- * removed. Comparing the last id and the length is enough to tell "genuinely
- * new" from "same array, fresh reference", so the UI can skip re-render churn
- * and the auto-scroll decision.
- */
-export function threadChanged(prev: ChatMessage[], next: ChatMessage[]) {
-  if (prev.length !== next.length) return true;
-  if (next.length === 0) return false;
-  return prev[prev.length - 1]?.messageId !== next[next.length - 1]?.messageId;
 }
 
 /**
@@ -60,7 +131,7 @@ export type ThreadRow =
   | {
       kind: "message";
       key: string;
-      msg: ChatMessage;
+      msg: UnifiedMessage;
       mine: boolean;
       /** first bubble of a visual group — gets top spacing */
       startsGroup: boolean;
@@ -68,17 +139,24 @@ export type ThreadRow =
       endsGroup: boolean;
     };
 
+// The one-line inbox summary for each kind. Text falls through to the message body.
+const KIND_LABEL: Partial<Record<MessageKind, string>> = {
+  image: "📷 Photo",
+  gif: "GIF",
+  voice: "🎤 Voice message",
+  sticker: "Sticker",
+};
+
 /**
  * One-line inbox preview for a chat's most recent message, mirroring
- * Instagram: your own messages read "You: …", attachments collapse to a label.
+ * Instagram: your own messages read "You: …", media collapses to a label.
  * Null (a chat with no messages yet) reads as an invitation, not a blank.
  */
-export function previewText(msg: ChatMessage | null | undefined, myId?: string): string {
+export function previewText(msg: UnifiedMessage | null | undefined, myId?: string): string {
   if (!msg) return "No messages yet";
-  const mine = msg.userId === myId;
-  const body = msg.messageText?.trim() ? msg.messageText.trim() : msg.file ? "📷 Photo" : "";
+  const body = msg.text.trim() || KIND_LABEL[msg.kind] || (msg.file ? "📷 Photo" : "");
   if (!body) return "No messages yet";
-  return mine ? `You: ${body}` : body;
+  return msg.userId === myId ? `You: ${body}` : body;
 }
 
 /**
@@ -102,32 +180,32 @@ function dateLabel(dateStr: string, now: number): string {
 }
 
 /**
- * Flat message list -> display rows with date separators and per-bubble
- * grouping flags. Pure so the whole grouping decision is covered by tests;
- * the page just maps rows to JSX. `now` is injected so "Today"/"Yesterday"
- * are testable.
+ * Flat unified message list -> display rows with date separators and per-bubble
+ * grouping flags. Pure so the whole grouping decision is covered by tests; the
+ * page just maps rows to JSX. `now` is injected so "Today"/"Yesterday" are
+ * testable. Assumes `messages` is already time-ordered (mergeThread guarantees it).
  */
-export function buildThread(messages: ChatMessage[], myId: string | undefined, now: number = Date.now()): ThreadRow[] {
+export function buildThread(messages: UnifiedMessage[], myId: string | undefined, now: number = Date.now()): ThreadRow[] {
   const rows: ThreadRow[] = [];
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
     const prev = messages[i - 1];
     const next = messages[i + 1];
 
-    const newDay = !prev || dayKey(prev.sendMassageDate) !== dayKey(msg.sendMassageDate);
+    const newDay = !prev || dayKey(prev.date) !== dayKey(msg.date);
     if (newDay) {
-      rows.push({ kind: "date", key: `date-${msg.messageId}`, label: dateLabel(msg.sendMassageDate, now) });
+      rows.push({ kind: "date", key: `date-${msg.key}`, label: dateLabel(msg.date, now) });
     }
 
-    const gapBefore = prev ? parseApiDate(msg.sendMassageDate) - parseApiDate(prev.sendMassageDate) : Infinity;
-    const gapAfter = next ? parseApiDate(next.sendMassageDate) - parseApiDate(msg.sendMassageDate) : Infinity;
+    const gapBefore = prev ? msg.at - prev.at : Infinity;
+    const gapAfter = next ? next.at - msg.at : Infinity;
     const sameSenderBefore = prev?.userId === msg.userId;
     const sameSenderAfter = next?.userId === msg.userId;
-    const sameDayAfter = next && dayKey(next.sendMassageDate) === dayKey(msg.sendMassageDate);
+    const sameDayAfter = next && dayKey(next.date) === dayKey(msg.date);
 
     rows.push({
       kind: "message",
-      key: String(msg.messageId),
+      key: msg.key,
       msg,
       mine: msg.userId === myId,
       startsGroup: newDay || !sameSenderBefore || gapBefore > GROUP_GAP_MS,

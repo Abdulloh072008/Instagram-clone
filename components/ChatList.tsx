@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import Avatar from "./Avatar";
 import ComposeDialog from "./ComposeDialog";
-import { chats } from "@/lib/services";
-import { otherUser, previewText, sortByActivity } from "@/lib/chat";
+import { chats, chatExtra } from "@/lib/services";
+import { otherUser, previewText, sortByActivity, mergeThread } from "@/lib/chat";
 import { useAuth } from "@/lib/auth";
 import { parseApiDate, timeAgo } from "@/lib/utils";
 import { RowsSkeleton } from "./Skeleton";
@@ -37,19 +37,18 @@ export default function ChatList({ className = "" }: { className?: string }) {
     try {
       const res = await chats.all();
       const chatList = res.data ?? [];
-      // One request per chat to read its last message — the API has no bulk
-      // preview endpoint. Fanned out in parallel so it's one burst, not a chain.
+      // Both stores per chat to read its true last message — no bulk preview
+      // endpoint exists. Fanned out in parallel so it's one burst, not a chain.
       const entries = await Promise.all(
         chatList.map(async (c): Promise<[number, Preview] | null> => {
-          try {
-            const r = await chats.byId(c.chatId);
-            const msgs = r.data ?? [];
-            const last = msgs[msgs.length - 1];
-            if (!last) return null;
-            return [c.chatId, { text: previewText(last, user?.id), date: last.sendMassageDate }];
-          } catch {
-            return null;
-          }
+          const [main, extra] = await Promise.all([
+            chats.byId(c.chatId).then((r) => r.data ?? []).catch(() => []),
+            chatExtra.get(c.chatId).then((r) => r.data ?? []).catch(() => []),
+          ]);
+          const merged = mergeThread(main, extra);
+          const last = merged[merged.length - 1];
+          if (!last) return null;
+          return [c.chatId, { text: previewText(last, user?.id), date: last.date }];
         }),
       );
       const previewMap: Record<number, Preview> = {};
