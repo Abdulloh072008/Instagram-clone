@@ -133,6 +133,18 @@ export const stickerCatalog = {
   get: (pack?: string) => extraApi.get<Envelope<StickerDto[]>>("/Sticker/get", { pack }),
 };
 
+// ---------- Blocks / reports (extra backend) ----------
+export const blocks = {
+  add: (userId: string, blockedUserId: string) => extraApi.postJson("/Block/add", undefined, { userId, blockedUserId }),
+  remove: (userId: string, blockedUserId: string) => extraApi.del("/Block/remove", { userId, blockedUserId }),
+  list: (userId: string) => extraApi.get<Envelope<string[]>>("/Block/list", { userId }),
+  isBlocked: (userId: string, otherId: string) => extraApi.get<Envelope<boolean>>("/Block/is-blocked", { userId, otherId }),
+};
+export const reportsApi = {
+  add: (reporterId: string, targetType: string, targetId: string, reason: string) =>
+    extraApi.postJson("/Report/add", { reporterId, targetType, targetId, reason }),
+};
+
 // ---------- Not interested (extra backend) — hide posts from the feed ----------
 export const notInterested = {
   add: (userId: string, postId: number) =>

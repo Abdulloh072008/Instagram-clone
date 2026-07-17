@@ -13,11 +13,22 @@ import { chats } from "@/lib/services";
 import { otherUser } from "@/components/ChatList";
 import { useAuth } from "@/lib/auth";
 import { timeAgo } from "@/lib/utils";
+import { imageUrl } from "@/lib/config";
 import type { ChatMessage } from "@/lib/types";
 import { BackIcon, PhoneIcon, VideoIcon, ImageIcon, ShareIcon, SearchIcon, CloseIcon } from "@/components/Icons";
 
+function MicGlyph({ size = 24 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="2" width="6" height="12" rx="3" />
+      <path d="M5 10a7 7 0 0 0 14 0M12 17v4" />
+    </svg>
+  );
+}
+
 const isMediaUrl = (t?: string) =>
   !!t && (/\.(gif|png|jpe?g|webp)(\?|$)/i.test(t) || /https?:\/\/\S*giphy\.com/i.test(t));
+const isAudioFile = (f?: string) => !!f && /\.(mp3|wav|ogg|webm|m4a|aac)(\?|$)/i.test(f);
 
 export default function ConversationPage() {
   const params = useParams<{ id: string }>();
@@ -30,8 +41,11 @@ export default function ConversationPage() {
   const [showGif, setShowGif] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [query, setQuery] = useState("");
+  const [recording, setRecording] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const recRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
   const {
     register,
     handleSubmit,
@@ -84,6 +98,29 @@ export default function ConversationPage() {
     reset();
     setFile(null);
   });
+
+  // Голосовое сообщение: запись через MediaRecorder → отправка файлом.
+  const startRec = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const rec = new MediaRecorder(stream);
+      chunksRef.current = [];
+      rec.ondataavailable = (e) => e.data.size && chunksRef.current.push(e.data);
+      rec.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+        const f = new File([blob], `voice-${Date.now()}.webm`, { type: "audio/webm" });
+        sendText("", f);
+        setRecording(false);
+      };
+      recRef.current = rec;
+      rec.start();
+      setRecording(true);
+    } catch {
+      /* доступ к микрофону не дан */
+    }
+  };
+  const stopRec = () => recRef.current?.stop();
 
   const shown = query.trim()
     ? messages.filter((m) => m.messageText?.toLowerCase().includes(query.trim().toLowerCase()))
@@ -150,7 +187,12 @@ export default function ConversationPage() {
                   gif ? "bg-transparent p-0" : mine ? "bg-ig-blue text-white" : "bg-neutral-800 text-neutral-100"
                 }`}
               >
-                {m.file && <Img src={m.file} alt="attachment" className="mb-1 max-h-64 rounded-lg object-cover" />}
+                {m.file &&
+                  (isAudioFile(m.file) ? (
+                    <audio controls src={imageUrl(m.file)} className="w-56" />
+                  ) : (
+                    <Img src={m.file} alt="attachment" className="mb-1 max-h-64 rounded-lg object-cover" />
+                  ))}
                 {gif ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={m.messageText} alt="gif" className="max-h-64 rounded-lg" />
@@ -175,6 +217,15 @@ export default function ConversationPage() {
         </button>
         <button type="button" onClick={() => setShowGif((s) => !s)} className="text-xs font-bold text-neutral-300 hover:text-white" aria-label="GIF">
           GIF
+        </button>
+        <button
+          type="button"
+          onClick={recording ? stopRec : startRec}
+          className={recording ? "animate-pulse text-ig-red" : "text-neutral-300 hover:text-white"}
+          aria-label={recording ? "Stop recording" : "Record voice"}
+          title={recording ? "Stop & send" : "Record voice message"}
+        >
+          <MicGlyph size={22} />
         </button>
         <input
           ref={fileRef}

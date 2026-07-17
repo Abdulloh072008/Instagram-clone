@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import Avatar from "./Avatar";
 import PostGrid from "./PostGrid";
 import FollowButton from "./FollowButton";
+import ProfileActions from "./ProfileActions";
 import { chats, reposts as repostsApi, posts as postsApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import { formatCount } from "@/lib/utils";
@@ -132,6 +133,7 @@ export default function ProfileView({
                 >
                   Message
                 </button>
+                <ProfileActions userId={userId} />
               </>
             )}
           </div>
