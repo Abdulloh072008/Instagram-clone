@@ -45,6 +45,14 @@ export default function LoginPage() {
   //  3) почта нигде не привязана → детерминированный авто-аккаунт (первый вход).
   useEffect(() => {
     if (loading || user || bridging.current) return;
+
+    // Только что вышли из аккаунта — один раз пропускаем авто-вход (иначе мостик
+    // мгновенно втянет обратно). Флаг ставит logout (см. lib/auth).
+    if (typeof window !== "undefined" && sessionStorage.getItem("skipGoogleBridge")) {
+      sessionStorage.removeItem("skipGoogleBridge");
+      return;
+    }
+
     const email = googleSession?.user?.email;
     if (!email) return;
     bridging.current = true;
