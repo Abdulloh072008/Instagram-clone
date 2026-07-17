@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Avatar from "./Avatar";
 import StoryViewer from "./StoryViewer";
-import { stories as storiesApi } from "@/lib/services";
+import { stories as storiesApi, follows } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
-import { loadSeen, saveSeen, storyKey, freshStories } from "@/lib/seenStories";
+import { loadSeen, saveSeen, storyKey, freshStories, followedStories } from "@/lib/seenStories";
 import { StoriesBarSkeleton } from "./Skeleton";
 import { toast } from "@/lib/toast";
 import type { UserStories } from "@/lib/types";
@@ -23,16 +23,37 @@ export default function StoriesBar() {
   useEffect(() => setSeen(loadSeen()), []);
 
   // Re-run after an upload too; loading is already false by then, so no reflash.
-  const load = () =>
-    storiesApi
-      .all()
-      .then((res) => setGroups(freshStories(Array.isArray(res) ? res : [])))
+  // The feed isn't filtered server-side, so it's paired with the follow list and
+  // narrowed here. If the follow list can't be fetched we fall back to your own
+  // stories only — showing strangers' would be the worse way to be wrong.
+  const load = useCallback(() => {
+    if (!user) return;
+    return Promise.all([
+      storiesApi.all(),
+      follows
+        .subscriptions(user.id)
+        .then((r) => r.data ?? [])
+        .catch(() => []),
+    ])
+      .then(([feed, following]) =>
+        setGroups(
+          freshStories(
+            followedStories(
+              feed,
+              // Both id spellings — see FollowListItem for why this is unsettled.
+              following.map((u) => u.userShortInfo?.userId ?? String(u.id ?? "")),
+              user.id,
+            ),
+          ),
+        ),
+      )
       .catch(() => setGroups([]))
       .finally(() => setLoading(false));
+  }, [user]);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
 
   // Stable identity so StoryViewer's mark-seen effect only fires on story change.
   const markSeen = useCallback((id: number) => {

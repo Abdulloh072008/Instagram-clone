@@ -86,6 +86,22 @@ export interface UserListItem {
   userName: string;
 }
 
+/**
+ * Item from /FollowingRelationShip/get-subscribers|get-subscriptions.
+ *
+ * The shape is genuinely unsettled: lib/api/following.ts documents
+ * `{ id, userShortInfo: { userId } }` (where `id` is the relationship, not the
+ * user), while this app typed it as UserListItem (`id` IS the user). Neither was
+ * ever proven, because nothing called these endpoints until stories needed the
+ * follow list — and the API documents no response schema. So read both: guessing
+ * wrong here matches nobody and empties the story bar with no error.
+ */
+export interface FollowListItem {
+  id?: string | number;
+  userName?: string;
+  userShortInfo?: { userId?: string; userName?: string } | null;
+}
+
 export interface StoryItem {
   storyId?: number;
   id?: number;

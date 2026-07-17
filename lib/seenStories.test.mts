@@ -1,6 +1,6 @@
 import { test, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { storyKey, loadSeen, saveSeen, freshStories } from "./seenStories.ts";
+import { storyKey, loadSeen, saveSeen, freshStories, followedStories } from "./seenStories.ts";
 import type { StoryItem, UserStories } from "./types.ts";
 
 // Node has no localStorage/window; both are read at call time, so a global stub
@@ -95,4 +95,38 @@ test("freshStories leaves the caller's array and groups untouched", () => {
   const input = [group([hoursAgo(1), hoursAgo(30)])];
   freshStories(input);
   assert.equal(input[0].stories.length, 2);
+});
+
+const by = (userId: string): UserStories => ({
+  userId,
+  userName: userId,
+  userImage: null,
+  stories: [{ storyId: 1, createdAt: hoursAgo(1) }] as StoryItem[],
+});
+
+test("followedStories keeps only the people you follow", () => {
+  const feed = [by("ann"), by("stranger"), by("bob")];
+  assert.deepEqual(
+    followedStories(feed, ["ann", "bob"]).map((g) => g.userId),
+    ["ann", "bob"],
+  );
+});
+
+test("followedStories keeps your own stories even though you don't follow yourself", () => {
+  const feed = [by("me"), by("stranger")];
+  assert.deepEqual(
+    followedStories(feed, [], "me").map((g) => g.userId),
+    ["me"],
+  );
+});
+
+test("followedStories drops everyone when you follow nobody", () => {
+  assert.deepEqual(followedStories([by("stranger")], []), []);
+});
+
+test("followedStories ignores people you follow who have no stories", () => {
+  assert.deepEqual(
+    followedStories([by("ann")], ["ann", "ghost"]).map((g) => g.userId),
+    ["ann"],
+  );
 });

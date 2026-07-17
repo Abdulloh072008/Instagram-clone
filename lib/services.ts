@@ -6,6 +6,7 @@ import type {
   ChatListItem,
   ChatMessage,
   Envelope,
+  FollowListItem,
   Paged,
   Post,
   Repost,
@@ -183,9 +184,13 @@ export const profiles = {
 // ---------- Following ----------
 export const follows = {
   subscribers: (userId: string) =>
-    api.get<Envelope<UserListItem[]>>("/FollowingRelationShip/get-subscribers", { UserId: userId }),
+    api.get<Envelope<FollowListItem[]>>("/FollowingRelationShip/get-subscribers", {
+      UserId: userId,
+    }),
   subscriptions: (userId: string) =>
-    api.get<Envelope<UserListItem[]>>("/FollowingRelationShip/get-subscriptions", { UserId: userId }),
+    api.get<Envelope<FollowListItem[]>>("/FollowingRelationShip/get-subscriptions", {
+      UserId: userId,
+    }),
   follow: (followingUserId: string) =>
     api.postJson("/FollowingRelationShip/add-following-relation-ship", undefined, { followingUserId }),
   unfollow: (followingUserId: string) =>

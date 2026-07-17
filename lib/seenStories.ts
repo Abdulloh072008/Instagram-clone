@@ -1,7 +1,8 @@
-// Client-side story rules the API doesn't give us: "seen" memory and expiry.
-// The backend records views, but the feed's get-stories doesn't tell us what
-// we've already watched — so we track it locally to grey the ring and start
-// playback at the first unwatched story. It also returns expired stories.
+// Client-side story rules the API doesn't give us: "seen" memory, expiry, and
+// who the feed is even for. The backend records views, but the feed doesn't
+// tell us what we've already watched — so we track it locally to grey the ring
+// and start playback at the first unwatched story. It also returns expired
+// stories, and every user's stories rather than only the ones you follow.
 import type { StoryItem, UserStories } from "./types";
 
 const KEY = "seenStories";
@@ -39,4 +40,19 @@ export function freshStories(groups: UserStories[]): UserStories[] {
       }),
     }))
     .filter((g) => g.stories.length > 0);
+}
+
+/**
+ * /StoryExtra/feed hands back every user's stories — it takes no viewer at all
+ * — so the "only people I follow" rule has to be applied here. Your own stories
+ * stay in regardless: they belong in your own bar.
+ */
+export function followedStories(
+  groups: UserStories[],
+  followingIds: Iterable<string>,
+  meId?: string,
+): UserStories[] {
+  const allowed = new Set(followingIds);
+  if (meId) allowed.add(meId);
+  return groups.filter((g) => allowed.has(g.userId));
 }
