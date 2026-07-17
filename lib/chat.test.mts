@@ -10,11 +10,12 @@ import {
   sortByActivity,
   mergeThread,
   reactionKey,
+  toggleReaction,
   fromExtra,
   EXTRA_ID_OFFSET,
 } from "./chat.ts";
 import type { ThreadRow } from "./chat.ts";
-import type { ChatListItem, ChatMessage, ExtraMessage, UnifiedMessage } from "./types.ts";
+import type { ChatListItem, ChatMessage, ExtraMessage, MessageReactions, UnifiedMessage } from "./types.ts";
 
 const chat: ChatListItem = {
   chatId: 1,
@@ -242,4 +243,40 @@ test("reactionKey: same id in the two stores never collides", () => {
 // Pins the assumption the offset relies on: real /Chat ids stay well under a billion.
 test("reactionKey: the offset dwarfs any realistic main message id", () => {
   assert.ok(reactionKey({ store: "extra", id: 1 }) > reactionKey({ store: "main", id: 900_000_000 }));
+});
+
+const me = { id: "me", userName: "ann" };
+
+test("toggleReaction: adding my first reaction sets mine and a count of 1", () => {
+  const r = toggleReaction(null, "❤️", me);
+  assert.equal(r.mine, "❤️");
+  assert.equal(r.total, 1);
+  assert.deepEqual(r.summary, [{ emoji: "❤️", count: 1 }]);
+});
+
+test("toggleReaction: picking the same emoji again removes it", () => {
+  const once = toggleReaction(null, "❤️", me);
+  const twice = toggleReaction(once, "❤️", me);
+  assert.equal(twice.mine, null);
+  assert.equal(twice.total, 0);
+});
+
+test("toggleReaction: a different emoji replaces mine, never stacks two", () => {
+  const heart = toggleReaction(null, "❤️", me);
+  const laugh = toggleReaction(heart, "😂", me);
+  assert.equal(laugh.mine, "😂");
+  assert.equal(laugh.total, 1);
+  assert.deepEqual(laugh.summary, [{ emoji: "😂", count: 1 }]);
+});
+
+test("toggleReaction: my reaction adds onto someone else's, not over it", () => {
+  const theirs: MessageReactions = {
+    total: 1,
+    summary: [{ emoji: "❤️", count: 1 }],
+    mine: null,
+    reactions: [{ id: 1, messageId: 5, userId: "you", userName: "bob", emoji: "❤️", createdAt: "2026-07-17T10:00:00" }],
+  };
+  const mineToo = toggleReaction(theirs, "❤️", me);
+  assert.equal(mineToo.total, 2);
+  assert.deepEqual(mineToo.summary, [{ emoji: "❤️", count: 2 }]);
 });

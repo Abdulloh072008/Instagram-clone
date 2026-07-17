@@ -1,4 +1,11 @@
-import type { ChatListItem, ChatMessage, ExtraMessage, MessageKind, UnifiedMessage } from "./types";
+import type {
+  ChatListItem,
+  ChatMessage,
+  ExtraMessage,
+  MessageKind,
+  MessageReactions,
+  UnifiedMessage,
+} from "./types";
 import { parseApiDate } from "./utils.ts";
 
 /**
@@ -32,6 +39,39 @@ export const EXTRA_ID_OFFSET = 1_000_000_000;
 /** Stable, collision-proof key to react to a message across both stores. */
 export function reactionKey(msg: { store: "main" | "extra"; id: number }): number {
   return msg.store === "extra" ? msg.id + EXTRA_ID_OFFSET : msg.id;
+}
+
+const EMPTY_REACTIONS: MessageReactions = { total: 0, summary: [], mine: null, reactions: [] };
+
+/**
+ * Optimistically apply my reaction before the server confirms it: picking the
+ * emoji I already have removes it (Instagram toggles), any other emoji replaces
+ * mine. Recomputes the summary tallies so the pill updates instantly. Pure, so
+ * the toggle rules are covered by tests; the server value overwrites this on the
+ * next fetch.
+ */
+export function toggleReaction(
+  prev: MessageReactions | null,
+  emoji: string,
+  me: { id: string; userName: string },
+): MessageReactions {
+  const base = prev ?? EMPTY_REACTIONS;
+  const removing = base.mine === emoji;
+  let reactions = base.reactions.filter((r) => r.userId !== me.id);
+  if (!removing) {
+    reactions = [
+      ...reactions,
+      { id: -1, messageId: 0, userId: me.id, userName: me.userName, emoji, createdAt: new Date().toISOString() },
+    ];
+  }
+  const counts = new Map<string, number>();
+  for (const r of reactions) counts.set(r.emoji, (counts.get(r.emoji) ?? 0) + 1);
+  return {
+    total: reactions.length,
+    summary: [...counts.entries()].map(([e, count]) => ({ emoji: e, count })),
+    mine: removing ? null : emoji,
+    reactions,
+  };
 }
 
 function coerceKind(type: string | null | undefined): MessageKind {
