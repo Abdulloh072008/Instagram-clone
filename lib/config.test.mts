@@ -1,9 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { imageUrl, IMAGE_BASE } from "./config.ts";
+import { imageUrl, IMAGE_BASE, EXTRA_API_BASE } from "./config.ts";
 
 test("imageUrl prefixes a bare API filename with the image base", () => {
   assert.equal(imageUrl("abc.jpg"), `${IMAGE_BASE}/abc.jpg`);
+});
+
+test("imageUrl sends the extra backend's rooted upload paths to its own host", () => {
+  assert.equal(imageUrl("/uploads/abc.png"), `${EXTRA_API_BASE}/uploads/abc.png`);
 });
 
 test("imageUrl passes absolute URLs through untouched", () => {

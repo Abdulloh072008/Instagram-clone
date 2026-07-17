@@ -67,6 +67,20 @@ test("freshStories keeps stories with an unreadable date rather than hiding them
   assert.equal(g.stories.length, 2);
 });
 
+test("freshStories reads the extra backend's createdAt", () => {
+  const stale: UserStories = {
+    userId: "u1",
+    userName: "ann",
+    userImage: null,
+    stories: [{ id: 1, createdAt: hoursAgo(30) }, { id: 2, createdAt: hoursAgo(2) }] as StoryItem[],
+  };
+  const [g] = freshStories([stale]);
+  assert.deepEqual(
+    g.stories.map((s) => s.id),
+    [2],
+  );
+});
+
 test("freshStories reads dateCreated when createAt is absent", () => {
   const stale: UserStories = {
     userId: "u1",

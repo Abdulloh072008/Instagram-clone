@@ -34,7 +34,7 @@ export function freshStories(groups: UserStories[]): UserStories[] {
     .map((g) => ({
       ...g,
       stories: g.stories.filter((s) => {
-        const t = Date.parse(s.createAt ?? s.dateCreated ?? "");
+        const t = Date.parse(s.createdAt ?? s.createAt ?? s.dateCreated ?? "");
         return Number.isNaN(t) || t >= cutoff;
       }),
     }))

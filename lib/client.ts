@@ -117,4 +117,7 @@ export const extraApi = {
 
   del: <T = unknown>(path: string, query?: Query) =>
     httpExtra.delete<T>(path, { params: clean(query) }).then((r) => r.data),
+
+  postForm: <T = unknown>(path: string, form: FormData, query?: Query) =>
+    httpExtra.post<T>(path, form, { params: clean(query) }).then((r) => r.data),
 };

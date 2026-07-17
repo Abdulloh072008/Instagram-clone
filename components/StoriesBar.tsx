@@ -56,10 +56,10 @@ export default function StoriesBar() {
   const onPickFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     e.target.value = "";
-    if (!files.length) return;
+    if (!files.length || !user) return;
     setUploading(true);
     try {
-      for (const file of files) await storiesApi.add(file); // one call per file — API takes a single file
+      for (const file of files) await storiesApi.add(user, file); // one call per file — API takes a single file
       await load();
       toast(files.length > 1 ? "Stories added" : "Story added", "ok");
     } catch {

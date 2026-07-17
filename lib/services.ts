@@ -2,6 +2,7 @@
 import { api, extraApi } from "./client";
 import type {
   AppNotification,
+  AuthUser,
   ChatListItem,
   ChatMessage,
   Envelope,
@@ -9,6 +10,7 @@ import type {
   Post,
   Repost,
   RepostState,
+  StoryReactions,
   UserListItem,
   UserProfile,
   UserStories,
@@ -89,23 +91,61 @@ export const reposts = {
   byUser: (userId: string) => extraApi.get<Envelope<Repost[]>>("/Repost/user", { userId }),
 };
 
-// ---------- Stories ----------
+// ---------- Stories (extra backend: /StoryExtra + /StoryInteract) ----------
+// The main API's /Story controller is no longer used: the extra backend owns
+// stories now and serves reactions/replies the main one never had. No JWT here,
+// so the caller's id/name travel explicitly on every write.
 export const stories = {
-  all: () => api.get<UserStories[]>("/Story/get-stories"),
-  mine: () => api.get<UserStories[]>("/Story/get-my-stories"),
-  byUser: (userId: string) => api.get<UserStories>(`/Story/get-user-stories/${userId}`),
-  like: (storyId: number) => api.postJson("/Story/LikeStory", undefined, { storyId }),
-  view: (storyId: number) => api.postJson("/Story/add-story-view", undefined, { storyId }),
-  add: (image: File, postId?: number) => {
+  all: () => extraApi.get<Envelope<UserStories[]>>("/StoryExtra/feed").then((r) => r.data ?? []),
+
+  add: (me: AuthUser, file: File, caption = "") => {
     const form = new FormData();
-    form.append("Image", image);
-    return api.postForm("/Story/AddStories", form, { PostId: postId });
+    form.append("UserId", me.id);
+    form.append("UserName", me.userName);
+    if (me.image) form.append("UserImage", me.image);
+    form.append("Caption", caption);
+    form.append("File", file);
+    return extraApi.postForm("/StoryExtra/add", form);
   },
-  remove: (id: number) => api.del("/Story/DeleteStory", { id }),
-  // ponytail: no story-reaction endpoint exists; reuse /Reaction keyed by storyId
-  // via the postId field. Collides only if a post and a story share the same id.
-  react: (userId: string, userName: string, storyId: number, emoji: string) =>
-    extraApi.postJson("/Reaction/add", { userId, userName, postId: storyId, emoji }),
+
+  view: (storyId: number, me: AuthUser) =>
+    extraApi.postJson("/StoryExtra/view", undefined, {
+      storyId,
+      userId: me.id,
+      userName: me.userName,
+    }),
+
+  like: (storyId: number, me: AuthUser) =>
+    extraApi.postJson("/StoryExtra/like", undefined, {
+      storyId,
+      userId: me.id,
+      userName: me.userName,
+    }),
+
+  remove: (id: number) => extraApi.del("/StoryExtra/delete", { id }),
+
+  reactions: (storyId: number, userId?: string) =>
+    extraApi.get<Envelope<StoryReactions>>("/StoryInteract/get-reactions", { storyId, userId }),
+
+  react: (storyId: number, me: AuthUser, emoji: string) =>
+    extraApi.postJson("/StoryInteract/react", {
+      storyId,
+      userId: me.id,
+      userName: me.userName,
+      emoji,
+    }),
+
+  unreact: (storyId: number, userId: string) =>
+    extraApi.del("/StoryInteract/remove-reaction", { storyId, userId }),
+
+  reply: (storyId: number, ownerUserId: string, me: AuthUser, text: string) =>
+    extraApi.postJson("/StoryInteract/reply", {
+      storyId,
+      ownerUserId,
+      fromUserId: me.id,
+      fromUserName: me.userName,
+      text,
+    }),
 };
 
 // ---------- Users / search ----------

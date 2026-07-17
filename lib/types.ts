@@ -96,7 +96,28 @@ export interface StoryItem {
   dateCreated?: string;
   storyView?: number;
   storyLike?: boolean;
+  // --- extra backend (/StoryExtra) ---
+  mediaUrl?: string; // rooted path, e.g. "/uploads/x.png"
+  type?: "image" | "video";
+  caption?: string;
+  createdAt?: string;
+  expiresAt?: string;
   [key: string]: unknown;
+}
+
+/** /StoryInteract/get-reactions — emoji tallies plus the caller's own pick. */
+export interface StoryReactions {
+  total: number;
+  summary: { emoji: string; count: number }[];
+  mine: string | null;
+  reactions: {
+    id: number;
+    storyId: number;
+    userId: string;
+    userName: string;
+    emoji: string;
+    createdAt: string;
+  }[];
 }
 
 export interface UserStories {

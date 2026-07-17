@@ -15,6 +15,9 @@ export const EXTRA_API_BASE =
 export function imageUrl(name?: string | null): string {
   if (!name) return "";
   if (name.startsWith("http")) return name;
+  // The extra backend serves its own uploads and returns rooted paths
+  // ("/uploads/x.png"); the main API only ever sends bare filenames.
+  if (name.startsWith("/")) return `${EXTRA_API_BASE}${name}`;
   return `${IMAGE_BASE}/${name}`;
 }
 
