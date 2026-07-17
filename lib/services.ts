@@ -173,6 +173,25 @@ export const notInterested = {
   list: (userId: string) => extraApi.get<Envelope<number[]>>("/NotInterested/get", { userId }),
 };
 
+// ---------- Presence / online status (extra backend) ----------
+export interface PresenceDto { userId: string; online: boolean; lastSeenAt: string }
+export const presence = {
+  // «Я онлайн» — шлём каждые ~30с, пока приложение открыто.
+  heartbeat: (userId: string) => extraApi.postJson("/Presence/heartbeat", undefined, { userId }),
+  // Статусы собеседников (id через запятую).
+  status: (userIds: string[]) =>
+    extraApi.get<Envelope<PresenceDto[]>>("/Presence/status", { userIds: userIds.join(",") }),
+};
+
+// ---------- Time Capsule (extra backend) — posts hidden until a reveal date ----------
+export interface CapsuleDto { postId: number; userId: string; revealAt: string; locked: boolean }
+export const timeCapsule = {
+  set: (postId: number, userId: string, revealAt: string) =>
+    extraApi.postJson<Envelope<CapsuleDto>>("/TimeCapsule/set", { postId, userId, revealAt }),
+  remove: (postId: number) => extraApi.del("/TimeCapsule/remove", { postId }),
+  all: () => extraApi.get<Envelope<CapsuleDto[]>>("/TimeCapsule/all"),
+};
+
 // ---------- Stories (extra backend: /StoryExtra + /StoryInteract) ----------
 // The main API's /Story controller is no longer used: the extra backend owns
 // stories now and serves reactions/replies the main one never had. No JWT here,
@@ -228,6 +247,11 @@ export const stories = {
       fromUserName: me.userName,
       text,
     }),
+
+  // Мои сторис (главный API /Story) — для выбора кадров в Highlights.
+  mine: () => api.get<UserStories[]>("/Story/get-my-stories"),
+  // Кросс-девайс «просмотрено» (доп-бэк): StoriesBar подмешивает к локальному seen.
+  viewed: (userId: string) => extraApi.get<Envelope<number[]>>("/StoryInteract/get-viewed", { userId }),
 };
 
 // ---------- Users / search ----------

@@ -9,7 +9,7 @@ import MessageBubble from "@/components/MessageBubble";
 import Composer from "@/components/Composer";
 import { useCall } from "@/components/CallProvider";
 import { toast } from "@/lib/toast";
-import { chats, chatExtra } from "@/lib/services";
+import { chats, chatExtra, presence } from "@/lib/services";
 import { otherUser, isNearBottom, threadChanged, buildThread, mergeThread, latestPeerSeen, SEEN_MARKER } from "@/lib/chat";
 import { CHAT_SENT_EVENT } from "@/components/ChatList";
 import { useAuth } from "@/lib/auth";
@@ -28,6 +28,7 @@ export default function ConversationPage() {
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [peer, setPeer] = useState<{ id: string; name: string; image: string | null } | null>(null);
+  const [peerOnline, setPeerOnline] = useState(false);
   // Optimistic messages shown before the server confirms them. Negative id
   // marks them as still sending and keeps them from colliding with real ids.
   // Kept apart from `messages` so the 5s poll can't wipe them.
@@ -35,6 +36,25 @@ export default function ConversationPage() {
   // When the peer last read the thread (epoch-ms, 0 = never), from their "seen"
   // markers. Neither API has real receipts; we synthesize them over ChatExtra.
   const [peerSeenAt, setPeerSeenAt] = useState(0);
+
+  // Онлайн-статус собеседника в шапке чата (обновляем каждые ~20с).
+  useEffect(() => {
+    if (!peer?.id) return;
+    let alive = true;
+    const check = () =>
+      presence
+        .status([peer.id])
+        .then((r) => {
+          if (alive) setPeerOnline(Boolean(r.data?.[0]?.online));
+        })
+        .catch(() => {});
+    check();
+    const t = setInterval(check, 20_000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [peer?.id]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   // First paint jumps to the bottom instantly; later updates only follow if you
@@ -250,8 +270,16 @@ export default function ConversationPage() {
         </Link>
         {peer && (
           <Link href={`/u/${peer.id}`} className="flex items-center gap-3">
-            <Avatar src={peer.image} name={peer.name} size={40} />
-            <span className="font-semibold">{peer.name}</span>
+            <div className="relative">
+              <Avatar src={peer.image} name={peer.name} size={40} />
+              {peerOnline && (
+                <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-black bg-green-500" />
+              )}
+            </div>
+            <div className="leading-tight">
+              <span className="font-semibold">{peer.name}</span>
+              {peerOnline && <p className="text-xs text-green-500">Active now</p>}
+            </div>
           </Link>
         )}
         <div className="ml-auto flex items-center gap-5 text-neutral-200">

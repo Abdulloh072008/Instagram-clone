@@ -16,8 +16,6 @@ import {
   PlusSquare,
   BellIcon,
   MenuIcon,
-  BookmarkIcon,
-  BookmarkFilled,
 } from "./Icons";
 
 type Panel = "search" | "notifications" | null;
@@ -120,7 +118,6 @@ export default function Sidebar() {
           {navLink("/messages", "Messages", MessageIcon, MessageIcon)}
           {navButton("notifications", "Notifications", BellIcon)}
           {navLink("/create", "Create", PlusSquare, PlusSquare)}
-          {navLink("/saved", "Saved", BookmarkIcon, BookmarkFilled)}
         </nav>
 
         {/* Profile pinned to the bottom, showing the user's avatar. */}

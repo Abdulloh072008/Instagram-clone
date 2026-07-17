@@ -148,10 +148,21 @@ body {
   animation: ig-voice-bar 0.9s ease-in-out infinite;
 }
 
+/* Settings gear: spins continuously while its button is hovered. */
+@keyframes ig-gear-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.gear-btn:hover .gear-ico {
+  animation: ig-gear-spin 1.4s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-react-fly,
   .animate-react-pop,
-  .animate-voice-bar {
+  .animate-voice-bar,
+  .gear-btn:hover .gear-ico {
     animation-duration: 0.01ms;
     animation-iteration-count: 1;
   }

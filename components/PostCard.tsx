@@ -6,7 +6,8 @@ import Link from "next/link";
 import Avatar from "./Avatar";
 import PostCarousel from "./PostCarousel";
 import PostModal from "./PostModal";
-import { posts as postsApi, reposts as repostsApi, notInterested as notInterestedApi } from "@/lib/services";
+import { posts as postsApi, reposts as repostsApi, notInterested as notInterestedApi, timeCapsule } from "@/lib/services";
+import { getCapsuleMap, setLocalCapsule, untilLabel } from "@/lib/timeCapsules";
 import { toast } from "@/lib/toast";
 import { useAuth } from "@/lib/auth";
 import { timeAgo, formatCount } from "@/lib/utils";
@@ -48,6 +49,9 @@ export default function PostCard({
   const [comments, setComments] = useState<PostComment[]>(post.comments ?? []);
   const [commentCount, setCommentCount] = useState(post.commentCount);
   const [showModal, setShowModal] = useState(false);
+  const [revealAt, setRevealAt] = useState<string | null>(null);
+  const [capsuleOpen, setCapsuleOpen] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const {
     register,
     handleSubmit,
@@ -71,6 +75,26 @@ export default function PostCard({
     };
   }, [post.postId, user?.id]);
 
+  // Time Capsule: заблокирован ли этот пост до даты раскрытия.
+  useEffect(() => {
+    let alive = true;
+    getCapsuleMap()
+      .then((m) => alive && setRevealAt(m.get(post.postId) ?? null))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [post.postId]);
+
+  const locked = revealAt != null && new Date(revealAt).getTime() > nowMs;
+
+  // Пока пост заблокирован — тикаем раз в 30с (обратный отсчёт + авто-раскрытие).
+  useEffect(() => {
+    if (!locked) return;
+    const t = setInterval(() => setNowMs(Date.now()), 30_000);
+    return () => clearInterval(t);
+  }, [locked]);
+
   async function toggleLike() {
     const next = !liked;
     setLiked(next);
@@ -91,6 +115,31 @@ export default function PostCard({
     if (user) notInterestedApi.add(user.id, post.postId).catch(() => {});
     setDeleted(true);
     onDeleted?.();
+  }
+
+  async function saveCapsule(revealIso: string) {
+    if (!user) return;
+    try {
+      await timeCapsule.set(post.postId, user.id, revealIso);
+      setLocalCapsule(post.postId, revealIso);
+      setRevealAt(revealIso);
+      setNowMs(Date.now());
+      setCapsuleOpen(false);
+      toast("Time capsule set", "ok");
+    } catch {
+      toast("Couldn't set the time capsule");
+    }
+  }
+
+  async function removeCapsule() {
+    try {
+      await timeCapsule.remove(post.postId);
+      setLocalCapsule(post.postId, null);
+      setRevealAt(null);
+      toast("Time capsule removed", "ok");
+    } catch {
+      toast("Couldn't remove the time capsule");
+    }
   }
 
   async function deletePost() {
@@ -204,6 +253,17 @@ export default function PostCard({
               )}
               {isRepost && canDelete && <DropdownMenuSeparator />}
               {canDelete && (
+                <DropdownMenuItem onSelect={() => setCapsuleOpen(true)} className="font-semibold">
+                  <ClockGlyph /> {revealAt ? "Edit time capsule" : "Make time capsule"}
+                </DropdownMenuItem>
+              )}
+              {canDelete && revealAt && (
+                <DropdownMenuItem onSelect={removeCapsule} className="font-semibold">
+                  Remove time capsule
+                </DropdownMenuItem>
+              )}
+              {canDelete && <DropdownMenuSeparator />}
+              {canDelete && (
                 <DropdownMenuItem onSelect={deletePost} className="font-semibold text-ig-red">
                   <TrashIcon size={18} /> Delete post
                 </DropdownMenuItem>
@@ -215,7 +275,17 @@ export default function PostCard({
 
       {/* media */}
       <div className="relative aspect-square w-full overflow-hidden bg-neutral-950 md:rounded-none">
-        {images.length > 0 ? (
+        {locked ? (
+          <div className="flex h-full flex-col items-center justify-center gap-3 bg-neutral-900 px-6 text-center">
+            <LockGlyph />
+            <p className="text-sm font-semibold text-neutral-200">Time capsule</p>
+            <p className="text-xs text-neutral-400">
+              Unlocks in {untilLabel(revealAt!, nowMs)}
+              <br />
+              <span className="text-neutral-500">{new Date(revealAt!).toLocaleString()}</span>
+            </p>
+          </div>
+        ) : images.length > 0 ? (
           <PostCarousel images={images} alt={post.title ?? ""} />
         ) : (
           <div className="flex h-full items-center justify-center px-6 text-center text-lg text-neutral-300">
@@ -308,6 +378,88 @@ export default function PostCard({
       </form>
 
       {showModal && <PostModal post={{ ...post, comments }} onClose={() => setShowModal(false)} />}
+      {capsuleOpen && (
+        <CapsuleDialog initial={revealAt} onClose={() => setCapsuleOpen(false)} onSave={saveCapsule} />
+      )}
     </article>
+  );
+}
+
+function LockGlyph() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="40"
+      height="40"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="text-neutral-300"
+    >
+      <rect x="4" y="10" width="16" height="10" rx="2" />
+      <path d="M8 10V7a4 4 0 0 1 8 0v3" />
+    </svg>
+  );
+}
+
+function ClockGlyph() {
+  return (
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
+
+function CapsuleDialog({
+  initial,
+  onClose,
+  onSave,
+}: {
+  initial: string | null;
+  onClose: () => void;
+  onSave: (iso: string) => void;
+}) {
+  // <input type="datetime-local"> wants local wall-clock "YYYY-MM-DDTHH:mm".
+  const toLocalInput = (iso: string | null) => {
+    const d = iso ? new Date(iso) : new Date(Date.now() + 3_600_000);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  const [val, setVal] = useState(() => toLocalInput(initial));
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-sm rounded-xl border border-line bg-elevated p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="mb-1 text-base font-semibold">Time capsule</h3>
+        <p className="mb-4 text-xs text-neutral-400">
+          Hide this post until the date you choose — it unlocks automatically.
+        </p>
+        <input
+          type="datetime-local"
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          className="mb-4 w-full rounded-lg border border-line bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-neutral-500"
+        />
+        <div className="flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-semibold text-neutral-300 hover:bg-neutral-800">
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              if (val && new Date(val).getTime() > Date.now()) onSave(new Date(val).toISOString());
+            }}
+            disabled={!val}
+            className="rounded-lg bg-ig-blue px-4 py-2 text-sm font-semibold text-white hover:bg-ig-blue-hover disabled:opacity-50"
+          >
+            Set
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
