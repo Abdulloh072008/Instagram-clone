@@ -6,6 +6,7 @@ import Avatar from "./Avatar";
 import PostCarousel from "./PostCarousel";
 import CommentsPanel from "./CommentsPanel";
 import { posts as postsApi, reposts as repostsApi } from "@/lib/services";
+import { toast } from "@/lib/toast";
 import { useAuth } from "@/lib/auth";
 import type { Post } from "@/lib/types";
 import { CloseIcon, MoreIcon, RepostIcon, TrashIcon, ChevronLeftIcon, ChevronRightIcon } from "./Icons";
@@ -57,7 +58,7 @@ export default function PostModal({
       onDeleted?.();
       onClose();
     } catch {
-      /* ignore */
+      toast("Couldn't delete the post");
     }
   }
 
@@ -68,7 +69,7 @@ export default function PostModal({
       onDeleted?.();
       onClose();
     } catch {
-      /* ignore */
+      toast("Couldn't remove the repost");
     }
   }
 

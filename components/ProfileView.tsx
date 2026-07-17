@@ -7,6 +7,7 @@ import Avatar from "./Avatar";
 import PostGrid from "./PostGrid";
 import FollowButton from "./FollowButton";
 import { chats, reposts as repostsApi, posts as postsApi } from "@/lib/services";
+import { toast } from "@/lib/toast";
 import { useAuth } from "@/lib/auth";
 import { formatCount } from "@/lib/utils";
 import type { Post, UserProfile } from "@/lib/types";
@@ -68,6 +69,7 @@ export default function ProfileView({
       const chatId = typeof res.data === "number" ? res.data : undefined;
       router.push(chatId ? `/messages/${chatId}` : "/messages");
     } catch {
+      toast("Couldn't open that chat");
       router.push("/messages");
     }
   }

@@ -7,6 +7,7 @@ import { useParams } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import Img from "@/components/Img";
 import Skeleton from "@/components/Skeleton";
+import { toast } from "@/lib/toast";
 import { chats } from "@/lib/services";
 import { otherUser } from "@/lib/chat";
 import { useAuth } from "@/lib/auth";
@@ -76,7 +77,7 @@ export default function ConversationPage() {
       setFile(null);
       await loadMessages();
     } catch {
-      /* ignore */
+      toast("Couldn't send your message");
     }
   });
 

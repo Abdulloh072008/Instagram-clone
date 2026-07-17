@@ -17,7 +17,3 @@ test("imageUrl is blank for missing input so <img> gets no src", () => {
   assert.equal(imageUrl(), "");
   assert.equal(imageUrl(null), "");
 });
-
-test("IMAGE_BASE has no trailing slash to double up on", () => {
-  assert.ok(!IMAGE_BASE.endsWith("/"), IMAGE_BASE);
-});

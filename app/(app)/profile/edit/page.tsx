@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import Skeleton from "@/components/Skeleton";
+import { toast } from "@/lib/toast";
 import { profiles } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import type { UserProfile } from "@/lib/types";
@@ -15,7 +16,6 @@ export default function EditProfilePage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [msg, setMsg] = useState("");
   const {
     register,
     handleSubmit,
@@ -40,19 +40,20 @@ export default function EditProfilePage() {
       const p = await profiles.me();
       setProfile(p.data);
       setUserImage(p.data.image);
+      toast("Photo updated", "ok");
     } catch {
-      setMsg("Image upload failed");
+      setPreview(null); // drop the preview so the avatar matches what's saved
+      toast("Couldn't upload that photo");
     }
   }
 
   const save = handleSubmit(async ({ about, gender }) => {
-    setMsg("");
     try {
       await profiles.update(about, Number(gender));
-      setMsg("Saved ✓");
-      setTimeout(() => router.push("/profile"), 600);
+      toast("Profile saved", "ok");
+      router.push("/profile");
     } catch {
-      setMsg("Save failed");
+      toast("Couldn't save your profile");
     }
   });
 
@@ -126,7 +127,6 @@ export default function EditProfilePage() {
         >
           {isSubmitting ? "Saving…" : "Submit"}
         </button>
-        {msg && <span className="text-sm text-neutral-400">{msg}</span>}
       </div>
 
       <p className="mt-6 text-xs text-neutral-600">

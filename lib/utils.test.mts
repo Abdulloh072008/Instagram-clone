@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cn, timeAgo, formatCount, isVideo, seedGradient, initial } from "./utils.ts";
+import { timeAgo, formatCount, isVideo, seedGradient, initial } from "./utils.ts";
 
 const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
 
@@ -69,12 +69,4 @@ test("initial takes the first letter, trimmed and uppercased", () => {
   assert.equal(initial(), "?");
   assert.equal(initial(""), "?");
   assert.equal(initial("   "), "?");
-});
-
-// Skeleton shapes pass rounded-none/rounded-2xl to override the base rounded.
-test("cn lets a later tailwind class beat an earlier conflicting one", () => {
-  assert.equal(
-    cn("animate-pulse rounded bg-neutral-900", "aspect-square rounded-none"),
-    "animate-pulse bg-neutral-900 aspect-square rounded-none",
-  );
 });

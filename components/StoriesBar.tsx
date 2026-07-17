@@ -7,6 +7,7 @@ import { stories as storiesApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import { loadSeen, saveSeen, storyKey, freshStories } from "@/lib/seenStories";
 import { StoriesBarSkeleton } from "./Skeleton";
+import { toast } from "@/lib/toast";
 import type { UserStories } from "@/lib/types";
 import { PlusIcon } from "./Icons";
 
@@ -60,8 +61,9 @@ export default function StoriesBar() {
     try {
       for (const file of files) await storiesApi.add(file); // one call per file — API takes a single file
       await load();
+      toast(files.length > 1 ? "Stories added" : "Story added", "ok");
     } catch {
-      /* ignore */
+      toast("Couldn't upload your story");
     } finally {
       setUploading(false);
     }
