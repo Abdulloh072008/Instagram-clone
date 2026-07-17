@@ -80,11 +80,8 @@ export default function StoriesBar() {
           disabled={uploading}
           className="flex w-16 shrink-0 flex-col items-center gap-1"
         >
-          <div className="relative">
-            <Avatar src={user?.image} name={user?.userName} size={58} />
-            <span className="absolute -bottom-0.5 -right-0.5 flex h-5 w-5 items-center justify-center rounded-full border-2 border-black bg-ig-blue">
-              <PlusIcon size={12} />
-            </span>
+          <div className="flex h-[58px] w-[58px] items-center justify-center rounded-full bg-neutral-800 text-neutral-200 transition hover:bg-neutral-700">
+            <PlusIcon size={26} />
           </div>
           <span className="w-full truncate text-center text-xs text-neutral-400">
             {uploading ? "Adding…" : "Your story"}

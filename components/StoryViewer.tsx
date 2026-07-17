@@ -237,8 +237,14 @@ export default function StoryViewer({
 
   const remove = () => {
     if (id == null) return;
-    storiesApi.remove(id).catch(() => {});
-    onClose();
+    setMenuOpen(false);
+    // Close only once the delete has landed — closing first refetches the feed,
+    // which used to race the request and bring the story straight back.
+    storiesApi
+      .remove(id)
+      .then(() => toast("Story deleted", "danger"))
+      .catch(() => toast("Couldn't delete your story"))
+      .finally(onClose);
   };
 
   return (

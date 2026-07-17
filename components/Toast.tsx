@@ -1,7 +1,15 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { subscribe, getToasts, EMPTY } from "@/lib/toast";
+import { subscribe, getToasts, EMPTY, type Tone } from "@/lib/toast";
+
+// Green for something gained, red for something lost or failed.
+const RED = "border-ig-red/50 bg-ig-red/15 text-red-100";
+const TONE: Record<Tone, string> = {
+  ok: "border-emerald-500/50 bg-emerald-500/15 text-emerald-50",
+  error: RED,
+  danger: RED,
+};
 
 /** Mounted once in the root layout; fed by toast() from anywhere. */
 export default function Toaster() {
@@ -18,9 +26,7 @@ export default function Toaster() {
       {list.map((i) => (
         <div
           key={i.id}
-          className={`animate-fade rounded-xl border bg-elevated px-4 py-3 text-sm text-neutral-100 shadow-lg ${
-            i.tone === "error" ? "border-ig-red/40" : "border-line"
-          }`}
+          className={`animate-fade rounded-xl border px-4 py-3 text-sm shadow-lg backdrop-blur-sm ${TONE[i.tone]}`}
         >
           {i.text}
         </div>

@@ -2,7 +2,10 @@
 // handler in a catch block, so toast() staying a plain function keeps those call
 // sites to one line and needs no provider threaded through the tree. Lives in
 // lib (not next to <Toaster/>) so it stays free of JSX and testable.
-export type Tone = "error" | "ok";
+// Tone drives the colour, so it tracks the action rather than the outcome:
+// "danger" is a destructive action that *succeeded* (a delete), which still
+// reads red — "error" would be a lie at those call sites.
+export type Tone = "error" | "ok" | "danger";
 export type Item = { id: number; text: string; tone: Tone };
 
 const TTL_MS = 4000;
