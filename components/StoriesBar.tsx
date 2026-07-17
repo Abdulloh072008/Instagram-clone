@@ -5,24 +5,10 @@ import Avatar from "./Avatar";
 import StoryViewer from "./StoryViewer";
 import { stories as storiesApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
-import { loadSeen, saveSeen, storyKey } from "@/lib/seenStories";
+import { loadSeen, saveSeen, storyKey, freshStories } from "@/lib/seenStories";
+import { StoriesBarSkeleton } from "./Skeleton";
 import type { UserStories } from "@/lib/types";
 import { PlusIcon } from "./Icons";
-
-// Stories expire 24h after they're posted. Filtered at fetch time (not render) so
-// the clock read stays out of the render path.
-function freshStories(groups: UserStories[]): UserStories[] {
-  const cutoff = Date.now() - 24 * 3600 * 1000;
-  return groups
-    .map((g) => ({
-      ...g,
-      stories: g.stories.filter((s) => {
-        const t = Date.parse(s.createAt ?? s.dateCreated ?? "");
-        return Number.isNaN(t) || t >= cutoff;
-      }),
-    }))
-    .filter((g) => g.stories.length > 0);
-}
 
 export default function StoriesBar() {
   const { user } = useAuth();
@@ -30,15 +16,18 @@ export default function StoriesBar() {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [seen, setSeen] = useState<Set<number>>(new Set());
   const [uploading, setUploading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => setSeen(loadSeen()), []);
 
+  // Re-run after an upload too; loading is already false by then, so no reflash.
   const load = () =>
     storiesApi
       .all()
       .then((res) => setGroups(freshStories(Array.isArray(res) ? res : [])))
-      .catch(() => setGroups([]));
+      .catch(() => setGroups([]))
+      .finally(() => setLoading(false));
 
   useEffect(() => {
     load();
@@ -77,6 +66,8 @@ export default function StoriesBar() {
       setUploading(false);
     }
   };
+
+  if (loading) return <StoriesBarSkeleton />;
 
   return (
     <>

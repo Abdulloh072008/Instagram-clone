@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import PostCard from "@/components/PostCard";
 import StoriesBar from "@/components/StoriesBar";
 import Suggestions from "@/components/Suggestions";
-import Spinner from "@/components/Spinner";
+import { PostCardSkeleton } from "@/components/Skeleton";
 import { posts as postsApi } from "@/lib/services";
 import type { Post } from "@/lib/types";
 
@@ -68,9 +68,12 @@ export default function HomeFeed() {
           ))}
         </div>
 
+        {/* First load fills the page; paging in only needs one card's worth. */}
         {loading && (
-          <div className="flex justify-center py-8">
-            <Spinner />
+          <div className="mt-4 flex flex-col gap-6">
+            {Array.from({ length: items.length ? 1 : 3 }).map((_, i) => (
+              <PostCardSkeleton key={i} />
+            ))}
           </div>
         )}
         {!loading && page >= totalPage && items.length > 0 && (

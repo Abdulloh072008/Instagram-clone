@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ProfileView from "@/components/ProfileView";
-import Spinner from "@/components/Spinner";
+import { ProfileSkeleton } from "@/components/Skeleton";
 import { profiles, posts as postsApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import type { Post, UserProfile } from "@/lib/types";
@@ -23,13 +23,7 @@ export default function MyProfilePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading || !profile || !user) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <Spinner />
-      </div>
-    );
-  }
+  if (loading || !profile || !user) return <ProfileSkeleton />;
 
   return <ProfileView userId={user.id} profile={profile} posts={myPosts} isMe />;
 }

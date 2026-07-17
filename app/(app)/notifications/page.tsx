@@ -5,7 +5,7 @@ import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import Img from "@/components/Img";
 import FollowButton from "@/components/FollowButton";
-import Spinner from "@/components/Spinner";
+import { RowsSkeleton } from "@/components/Skeleton";
 import { notifications as notifApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import { timeAgo } from "@/lib/utils";
@@ -76,11 +76,7 @@ export default function NotificationsPage() {
     <div className="mx-auto max-w-[600px] px-2 py-6 md:px-4">
       <h1 className="mb-4 px-2 text-2xl font-bold">Notifications</h1>
 
-      {loading && (
-        <div className="flex justify-center py-16">
-          <Spinner />
-        </div>
-      )}
+      {loading && <RowsSkeleton count={8} className="-mx-2" />}
 
       {!loading && items.length === 0 && (
         <div className="flex flex-col items-center gap-3 py-20 text-center">

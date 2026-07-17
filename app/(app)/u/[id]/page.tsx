@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import ProfileView from "@/components/ProfileView";
-import Spinner from "@/components/Spinner";
+import { ProfileSkeleton } from "@/components/Skeleton";
 import { profiles, posts as postsApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import type { Post, UserProfile } from "@/lib/types";
@@ -36,13 +36,7 @@ export default function UserProfilePage() {
       .finally(() => setLoading(false));
   }, [id]);
 
-  if (loading || !profile) {
-    return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <Spinner />
-      </div>
-    );
-  }
+  if (loading || !profile) return <ProfileSkeleton />;
 
   return (
     <ProfileView

@@ -6,7 +6,7 @@ import Avatar from "@/components/Avatar";
 import Img from "@/components/Img";
 import FeedVideo from "@/components/FeedVideo";
 import CommentsPanel from "@/components/CommentsPanel";
-import Spinner from "@/components/Spinner";
+import Skeleton from "@/components/Skeleton";
 import { posts as postsApi, reposts as repostsApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import { formatCount } from "@/lib/utils";
@@ -158,7 +158,7 @@ export default function ReelsPage() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <Spinner />
+        <Skeleton className="h-[88vh] w-full max-w-[440px] rounded-none md:rounded-xl" />
       </div>
     );
   }

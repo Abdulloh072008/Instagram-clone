@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
-import Spinner from "@/components/Spinner";
+import Skeleton from "@/components/Skeleton";
 import { profiles } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import type { UserProfile } from "@/lib/types";
@@ -58,8 +58,21 @@ export default function EditProfilePage() {
 
   if (!profile) {
     return (
-      <div className="flex h-[60vh] items-center justify-center">
-        <Spinner />
+      <div className="mx-auto max-w-xl px-4 py-8">
+        <Skeleton className="mb-6 h-6 w-40" />
+        <div className="mb-8 flex items-center gap-4">
+          <Skeleton className="h-16 w-16 rounded-full" />
+          <Skeleton className="h-3 w-28" />
+        </div>
+        <div className="flex flex-col gap-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex flex-col gap-2">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-10 w-full rounded-lg" />
+            </div>
+          ))}
+          <Skeleton className="h-10 w-32 rounded-lg" />
+        </div>
       </div>
     );
   }
