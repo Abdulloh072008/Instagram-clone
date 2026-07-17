@@ -133,6 +133,18 @@ export const stickerCatalog = {
   get: (pack?: string) => extraApi.get<Envelope<StickerDto[]>>("/Sticker/get", { pack }),
 };
 
+// ---------- Saved collections (extra backend) ----------
+export interface CollectionDto { id: number; userId: string; name: string; coverUrl: string | null; createdAt: string; postIds: number[] }
+
+export const collections = {
+  create: (userId: string, name: string, postIds: number[], coverUrl?: string) =>
+    extraApi.postJson<Envelope<CollectionDto>>("/Collection/create", { userId, name, coverUrl, postIds }),
+  byUser: (userId: string) => extraApi.get<Envelope<CollectionDto[]>>("/Collection/by-user", { userId }),
+  addItem: (collectionId: number, postId: number) => extraApi.postJson("/Collection/add-item", undefined, { collectionId, postId }),
+  removeItem: (collectionId: number, postId: number) => extraApi.del("/Collection/remove-item", { collectionId, postId }),
+  delete: (id: number) => extraApi.del("/Collection/delete", { id }),
+};
+
 // ---------- Highlights (extra backend) — pinned story collections ----------
 export interface HighlightItemDto { id: number; highlightId: number; mediaUrl: string; type: string; createdAt: string }
 export interface HighlightDto { id: number; userId: string; title: string; coverUrl: string | null; createdAt: string; items: HighlightItemDto[] }
