@@ -5,6 +5,7 @@ import Link from "next/link";
 import Avatar from "@/components/Avatar";
 import Img from "@/components/Img";
 import FollowButton from "@/components/FollowButton";
+import FollowRequests from "@/components/FollowRequests";
 import { notifications as notifApi } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import { timeAgo } from "@/lib/utils";
@@ -74,6 +75,7 @@ export default function NotificationsPage() {
   return (
     <div className="mx-auto max-w-[600px] px-2 py-6 md:px-4">
       <h1 className="mb-4 px-2 text-2xl font-bold">Notifications</h1>
+      <FollowRequests />
 
       {loading && (
         <div className="flex justify-center py-16">

@@ -133,6 +133,26 @@ export const stickerCatalog = {
   get: (pack?: string) => extraApi.get<Envelope<StickerDto[]>>("/Sticker/get", { pack }),
 };
 
+// ---------- Privacy + follow requests (extra backend) ----------
+export interface FollowRequestDto {
+  id: number; requesterId: string; requesterName: string; requesterImage: string | null;
+  targetId: string; status: string; createdAt: string;
+}
+export const privacy = {
+  get: (userId: string) => extraApi.get<Envelope<{ userId: string; isPrivate: boolean }>>("/Privacy/get", { userId }),
+  set: (userId: string, isPrivate: boolean) =>
+    extraApi.putJson<Envelope<{ userId: string; isPrivate: boolean }>>("/Privacy/set", undefined, { userId, isPrivate }),
+};
+export const followRequests = {
+  create: (requesterId: string, requesterName: string, requesterImage: string | null, targetId: string) =>
+    extraApi.postJson<Envelope<FollowRequestDto>>("/FollowRequest/create", { requesterId, requesterName, requesterImage, targetId }),
+  incoming: (userId: string) => extraApi.get<Envelope<FollowRequestDto[]>>("/FollowRequest/incoming", { userId }),
+  status: (requesterId: string, targetId: string) => extraApi.get<Envelope<string>>("/FollowRequest/status", { requesterId, targetId }),
+  approve: (id: number) => extraApi.putJson("/FollowRequest/approve", undefined, { id }),
+  decline: (id: number) => extraApi.del("/FollowRequest/decline", { id }),
+  cancel: (requesterId: string, targetId: string) => extraApi.del("/FollowRequest/cancel", { requesterId, targetId }),
+};
+
 // ---------- Comment replies / threads (extra backend) ----------
 export interface CommentReplyDto {
   id: number; postId: number; postCommentId: number;

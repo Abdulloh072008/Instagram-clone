@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import Avatar from "@/components/Avatar";
 import ConnectedAccounts from "@/components/ConnectedAccounts";
+import PrivacyToggle from "@/components/PrivacyToggle";
 import { profiles } from "@/lib/services";
 import { useAuth } from "@/lib/auth";
 import type { UserProfile } from "@/lib/types";
@@ -120,6 +121,7 @@ export default function EditProfilePage() {
         Note: the backend only allows updating your photo, bio and gender.
       </p>
 
+      <PrivacyToggle />
       <ConnectedAccounts />
     </div>
   );
