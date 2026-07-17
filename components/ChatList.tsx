@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import Avatar from "./Avatar";
 import ComposeDialog from "./ComposeDialog";
-import { chats, chatExtra } from "@/lib/services";
+import { chats, chatExtra, presence } from "@/lib/services";
 import { otherUser, previewText, sortByActivity, mergeThread } from "@/lib/chat";
 import { useAuth } from "@/lib/auth";
 import { parseApiDate, timeAgo } from "@/lib/utils";
@@ -32,6 +32,7 @@ export default function ChatList({ className = "" }: { className?: string }) {
   const [previews, setPreviews] = useState<Record<number, Preview>>(cache?.previews ?? {});
   const [loading, setLoading] = useState(!cache);
   const [composeOpen, setComposeOpen] = useState(false);
+  const [online, setOnline] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     try {
@@ -78,6 +79,26 @@ export default function ChatList({ className = "" }: { className?: string }) {
     };
   }, [load]);
 
+  // Poll online status of the people in the inbox (green dot on the avatar).
+  useEffect(() => {
+    const ids = list.map((c) => otherUser(c, user?.id).id).filter(Boolean);
+    if (ids.length === 0) return;
+    let alive = true;
+    const loadStatus = () =>
+      presence
+        .status(ids)
+        .then((r) => {
+          if (alive) setOnline(new Set((r.data ?? []).filter((p) => p.online).map((p) => p.userId)));
+        })
+        .catch(() => {});
+    loadStatus();
+    const t = setInterval(loadStatus, 20_000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [list, user?.id]);
+
   return (
     <div className={`flex flex-col border-r border-line ${className}`}>
       <div className="flex items-center justify-between border-b border-line px-4 py-4">
@@ -107,7 +128,12 @@ export default function ChatList({ className = "" }: { className?: string }) {
                 active ? "bg-neutral-900" : ""
               }`}
             >
-              <Avatar src={o.image} name={o.name} size={48} />
+              <div className="relative shrink-0">
+                <Avatar src={o.image} name={o.name} size={48} />
+                {online.has(o.id) && (
+                  <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-black bg-green-500" />
+                )}
+              </div>
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{o.name}</p>
                 <p className="truncate text-xs text-neutral-500">

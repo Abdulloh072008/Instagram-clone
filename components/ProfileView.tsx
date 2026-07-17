@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import Avatar from "./Avatar";
 import PostGrid from "./PostGrid";
 import FollowButton from "./FollowButton";
+import ProfileActions from "./ProfileActions";
+import Highlights from "./Highlights";
 import { chats, reposts as repostsApi, posts as postsApi } from "@/lib/services";
 import { toast } from "@/lib/toast";
 import { useAuth } from "@/lib/auth";
@@ -20,6 +22,7 @@ import {
   BellIcon,
   BookmarkIcon,
   LogoutIcon,
+  SettingsIcon,
 } from "./Icons";
 import {
   DropdownMenu,
@@ -89,7 +92,7 @@ export default function ProfileView({
             <DropdownMenuItem onSelect={() => router.push("/notifications")}>
               <BellIcon size={18} /> Your activity
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => router.push("/profile")}>
+            <DropdownMenuItem onSelect={() => router.push("/saved")}>
               <BookmarkIcon size={18} /> Saved
             </DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -113,14 +116,14 @@ export default function ProfileView({
           <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
             <h1 className="text-xl font-light">{profile.userName}</h1>
             {isMe ? (
-              <>
-                <Link
-                  href="/profile/edit"
-                  className="rounded-lg bg-neutral-800 px-4 py-1.5 text-sm font-semibold hover:bg-neutral-700"
-                >
-                  Edit profile
-                </Link>
-              </>
+              <Link
+                href="/profile/edit"
+                aria-label="Settings"
+                title="Settings"
+                className="gear-btn rounded-lg p-1.5 text-neutral-200 transition hover:bg-neutral-800"
+              >
+                <SettingsIcon size={24} className="gear-ico" />
+              </Link>
             ) : (
               <>
                 <FollowButton
@@ -134,6 +137,7 @@ export default function ProfileView({
                 >
                   Message
                 </button>
+                <ProfileActions userId={userId} />
               </>
             )}
           </div>
@@ -157,6 +161,9 @@ export default function ProfileView({
           </div>
         </div>
       </header>
+
+      {/* highlights */}
+      <Highlights userId={userId} isMe={isMe} />
 
       {/* tabs */}
       <div className="flex justify-center gap-12 border-b border-line">

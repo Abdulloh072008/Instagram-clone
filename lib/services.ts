@@ -98,6 +98,100 @@ export const reposts = {
   byUser: (userId: string) => extraApi.get<Envelope<Repost[]>>("/Repost/user", { userId }),
 };
 
+// ---------- Privacy + follow requests (extra backend) ----------
+export interface FollowRequestDto {
+  id: number; requesterId: string; requesterName: string; requesterImage: string | null;
+  targetId: string; status: string; createdAt: string;
+}
+export const privacy = {
+  get: (userId: string) => extraApi.get<Envelope<{ userId: string; isPrivate: boolean }>>("/Privacy/get", { userId }),
+  set: (userId: string, isPrivate: boolean) =>
+    extraApi.putJson<Envelope<{ userId: string; isPrivate: boolean }>>("/Privacy/set", undefined, { userId, isPrivate }),
+};
+export const followRequests = {
+  create: (requesterId: string, requesterName: string, requesterImage: string | null, targetId: string) =>
+    extraApi.postJson<Envelope<FollowRequestDto>>("/FollowRequest/create", { requesterId, requesterName, requesterImage, targetId }),
+  incoming: (userId: string) => extraApi.get<Envelope<FollowRequestDto[]>>("/FollowRequest/incoming", { userId }),
+  status: (requesterId: string, targetId: string) => extraApi.get<Envelope<string>>("/FollowRequest/status", { requesterId, targetId }),
+  approve: (id: number) => extraApi.putJson("/FollowRequest/approve", undefined, { id }),
+  decline: (id: number) => extraApi.del("/FollowRequest/decline", { id }),
+  cancel: (requesterId: string, targetId: string) => extraApi.del("/FollowRequest/cancel", { requesterId, targetId }),
+};
+
+// ---------- Comment replies / threads (extra backend) ----------
+export interface CommentReplyDto {
+  id: number; postId: number; postCommentId: number;
+  userId: string; userName: string; userImage: string | null; text: string; createdAt: string;
+}
+export const commentReplies = {
+  add: (postId: number, postCommentId: number, userId: string, userName: string, userImage: string | null, text: string) =>
+    extraApi.postJson<Envelope<CommentReplyDto>>("/CommentReply/add", { postId, postCommentId, userId, userName, userImage, text }),
+  byPost: (postId: number) => extraApi.get<Envelope<CommentReplyDto[]>>("/CommentReply/by-post", { postId }),
+};
+
+// ---------- Saved collections (extra backend) ----------
+export interface CollectionDto { id: number; userId: string; name: string; coverUrl: string | null; createdAt: string; postIds: number[] }
+
+export const collections = {
+  create: (userId: string, name: string, postIds: number[], coverUrl?: string) =>
+    extraApi.postJson<Envelope<CollectionDto>>("/Collection/create", { userId, name, coverUrl, postIds }),
+  byUser: (userId: string) => extraApi.get<Envelope<CollectionDto[]>>("/Collection/by-user", { userId }),
+  addItem: (collectionId: number, postId: number) => extraApi.postJson("/Collection/add-item", undefined, { collectionId, postId }),
+  removeItem: (collectionId: number, postId: number) => extraApi.del("/Collection/remove-item", { collectionId, postId }),
+  delete: (id: number) => extraApi.del("/Collection/delete", { id }),
+};
+
+// ---------- Highlights (extra backend) — pinned story collections ----------
+export interface HighlightItemDto { id: number; highlightId: number; mediaUrl: string; type: string; createdAt: string }
+export interface HighlightDto { id: number; userId: string; title: string; coverUrl: string | null; createdAt: string; items: HighlightItemDto[] }
+
+export const highlights = {
+  create: (userId: string, title: string, items: { mediaUrl: string; type: string }[], coverUrl?: string) =>
+    extraApi.postJson<Envelope<HighlightDto>>("/Highlight/create", { userId, title, coverUrl, items }),
+  byUser: (userId: string) => extraApi.get<Envelope<HighlightDto[]>>("/Highlight/by-user", { userId }),
+  delete: (id: number) => extraApi.del("/Highlight/delete", { id }),
+};
+
+// ---------- Blocks / reports (extra backend) ----------
+export const blocks = {
+  add: (userId: string, blockedUserId: string) => extraApi.postJson("/Block/add", undefined, { userId, blockedUserId }),
+  remove: (userId: string, blockedUserId: string) => extraApi.del("/Block/remove", { userId, blockedUserId }),
+  list: (userId: string) => extraApi.get<Envelope<string[]>>("/Block/list", { userId }),
+  isBlocked: (userId: string, otherId: string) => extraApi.get<Envelope<boolean>>("/Block/is-blocked", { userId, otherId }),
+};
+export const reportsApi = {
+  add: (reporterId: string, targetType: string, targetId: string, reason: string) =>
+    extraApi.postJson("/Report/add", { reporterId, targetType, targetId, reason }),
+};
+
+// ---------- Not interested (extra backend) — hide posts from the feed ----------
+export const notInterested = {
+  add: (userId: string, postId: number) =>
+    extraApi.postJson("/NotInterested/add", undefined, { userId, postId }),
+  remove: (userId: string, postId: number) =>
+    extraApi.del("/NotInterested/remove", { userId, postId }),
+  list: (userId: string) => extraApi.get<Envelope<number[]>>("/NotInterested/get", { userId }),
+};
+
+// ---------- Presence / online status (extra backend) ----------
+export interface PresenceDto { userId: string; online: boolean; lastSeenAt: string }
+export const presence = {
+  // «Я онлайн» — шлём каждые ~30с, пока приложение открыто.
+  heartbeat: (userId: string) => extraApi.postJson("/Presence/heartbeat", undefined, { userId }),
+  // Статусы собеседников (id через запятую).
+  status: (userIds: string[]) =>
+    extraApi.get<Envelope<PresenceDto[]>>("/Presence/status", { userIds: userIds.join(",") }),
+};
+
+// ---------- Time Capsule (extra backend) — posts hidden until a reveal date ----------
+export interface CapsuleDto { postId: number; userId: string; revealAt: string; locked: boolean }
+export const timeCapsule = {
+  set: (postId: number, userId: string, revealAt: string) =>
+    extraApi.postJson<Envelope<CapsuleDto>>("/TimeCapsule/set", { postId, userId, revealAt }),
+  remove: (postId: number) => extraApi.del("/TimeCapsule/remove", { postId }),
+  all: () => extraApi.get<Envelope<CapsuleDto[]>>("/TimeCapsule/all"),
+};
+
 // ---------- Stories (extra backend: /StoryExtra + /StoryInteract) ----------
 // The main API's /Story controller is no longer used: the extra backend owns
 // stories now and serves reactions/replies the main one never had. No JWT here,
@@ -153,6 +247,11 @@ export const stories = {
       fromUserName: me.userName,
       text,
     }),
+
+  // Мои сторис (главный API /Story) — для выбора кадров в Highlights.
+  mine: () => api.get<UserStories[]>("/Story/get-my-stories"),
+  // Кросс-девайс «просмотрено» (доп-бэк): StoriesBar подмешивает к локальному seen.
+  viewed: (userId: string) => extraApi.get<Envelope<number[]>>("/StoryInteract/get-viewed", { userId }),
 };
 
 // ---------- Users / search ----------
