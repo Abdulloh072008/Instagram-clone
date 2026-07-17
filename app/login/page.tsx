@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { signIn, signOut, useSession } from "next-auth/react";
 import Link from "next/link";
@@ -10,9 +10,10 @@ import { useAuth } from "@/lib/auth";
 type Fields = { userName: string; password: string };
 
 export default function LoginPage() {
-  const { login, user, loading } = useAuth();
+  const { login, register: authRegister, user, loading } = useAuth();
   const { data: googleSession } = useSession();
   const router = useRouter();
+  const bridging = useRef(false);
   const [showPw, setShowPw] = useState(false);
   const {
     register,
@@ -24,6 +25,39 @@ export default function LoginPage() {
   useEffect(() => {
     if (!loading && user) router.replace("/");
   }, [loading, user, router]);
+
+  // Мостик Google → приложение: у Google-сессии нет softclub-токена, а вход в
+  // приложение идёт по нему. Поэтому при входе через Google авто-создаём/входим
+  // в softclub-аккаунт, привязанный к почте (детерминированные логин/пароль),
+  // получаем настоящую сессию и попадаем внутрь.
+  useEffect(() => {
+    if (loading || user || bridging.current) return;
+    const email = googleSession?.user?.email;
+    if (!email) return;
+    bridging.current = true;
+    const clean = email.replace(/[^a-z0-9]/gi, "").toLowerCase();
+    const uname = ("g" + clean).slice(0, 24);
+    const pass = "Gg1!" + clean.slice(0, 16);
+    (async () => {
+      try {
+        try {
+          await login(uname, pass);
+        } catch {
+          await authRegister({
+            userName: uname,
+            fullName: googleSession?.user?.name || uname,
+            email,
+            password: pass,
+            confirmPassword: pass,
+          });
+          await login(uname, pass);
+        }
+        router.replace("/");
+      } catch {
+        bridging.current = false; // не вышло — оставляем обычный вход
+      }
+    })();
+  }, [loading, user, googleSession, login, authRegister, router]);
 
   const onSubmit = handleSubmit(async ({ userName, password }) => {
     try {
