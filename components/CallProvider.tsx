@@ -8,13 +8,19 @@ import { useAuth } from "@/lib/auth";
 import { PhoneIcon, VideoIcon, MicIcon } from "./Icons";
 import type { CallInfo, CallType } from "@/lib/types";
 
-// Public STUN only. Same-machine and same-Wi-Fi calls connect; calls across
-// different NATs need a TURN relay this project doesn't have, and will often
-// fail to connect — see the grilling notes.
+// STUN finds your public address; TURN *relays* media when the two peers are on
+// different NATs (home ↔ mobile), which STUN alone can't traverse. Without a TURN
+// relay, ontrack still fires (so the call looks connected) but no audio/video ever
+// flows — exactly the "no sound / black video" symptom. These are the free public
+// Open Relay TURN servers; for heavy use, run your own coturn.
 const RTC_CONFIG: RTCConfiguration = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun.relay.metered.ca:80" },
+    { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
+    { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" },
+    { urls: "turn:openrelay.metered.ca:443?transport=tcp", username: "openrelayproject", credential: "openrelayproject" },
   ],
 };
 

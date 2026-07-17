@@ -28,7 +28,7 @@ export default function ConversationPage() {
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [peer, setPeer] = useState<{ id: string; name: string; image: string | null } | null>(null);
-  const [peerOnline, setPeerOnline] = useState(false);
+  const [peerPresence, setPeerPresence] = useState<{ online: boolean; lastSeenAt: string } | null>(null);
   // Optimistic messages shown before the server confirms them. Negative id
   // marks them as still sending and keeps them from colliding with real ids.
   // Kept apart from `messages` so the 5s poll can't wipe them.
@@ -45,7 +45,8 @@ export default function ConversationPage() {
       presence
         .status([peer.id])
         .then((r) => {
-          if (alive) setPeerOnline(Boolean(r.data?.[0]?.online));
+          const p = r.data?.[0];
+          if (alive && p) setPeerPresence({ online: p.online, lastSeenAt: p.lastSeenAt });
         })
         .catch(() => {});
     check();
@@ -272,13 +273,17 @@ export default function ConversationPage() {
           <Link href={`/u/${peer.id}`} className="flex items-center gap-3">
             <div className="relative">
               <Avatar src={peer.image} name={peer.name} size={40} />
-              {peerOnline && (
+              {peerPresence?.online && (
                 <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-black bg-green-500" />
               )}
             </div>
             <div className="leading-tight">
               <span className="font-semibold">{peer.name}</span>
-              {peerOnline && <p className="text-xs text-green-500">Active now</p>}
+              {peerPresence?.online ? (
+                <p className="text-xs text-green-500">Active now</p>
+              ) : peerPresence && new Date(peerPresence.lastSeenAt).getFullYear() > 2000 ? (
+                <p className="text-xs text-neutral-500">Active {timeAgo(peerPresence.lastSeenAt)}</p>
+              ) : null}
             </div>
           </Link>
         )}
