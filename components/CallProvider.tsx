@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import Avatar from "./Avatar";
 import { calls } from "@/lib/services";
+import { fetchTurnServers } from "@/lib/turn";
 import { createRingtone } from "@/lib/ringtone";
 import { useAuth } from "@/lib/auth";
 import { PhoneIcon, VideoIcon, MicIcon } from "./Icons";
@@ -68,7 +69,14 @@ export default function CallProvider({ children }: { children: React.ReactNode }
   const remoteAudioRef = useRef<HTMLAudioElement>(null);
   // ICE-кандидаты, пришедшие ДО remoteDescription — держим, пока её не поставим.
   const pendingIce = useRef<RTCIceCandidateInit[]>([]);
+  // TURN/STUN серверы от metered (подгружаются заранее, добавляются к RTC_CONFIG).
+  const iceExtra = useRef<RTCIceServer[]>([]);
   const ringRef = useRef<ReturnType<typeof createRingtone> | null>(null);
+
+  // Заранее тянем TURN-данные, чтобы к первому звонку они уже были.
+  useEffect(() => {
+    fetchTurnServers().then((s) => (iceExtra.current = s)).catch(() => {});
+  }, []);
 
   const teardown = useCallback(() => {
     if (sigTimer.current) clearInterval(sigTimer.current);
@@ -115,7 +123,9 @@ export default function CallProvider({ children }: { children: React.ReactNode }
 
   const createPC = useCallback(
     (callId: number, myId: string) => {
-      const pc = new RTCPeerConnection(RTC_CONFIG);
+      const pc = new RTCPeerConnection({
+        iceServers: [...(RTC_CONFIG.iceServers ?? []), ...iceExtra.current],
+      });
       pc.onicecandidate = (e) => {
         if (e.candidate) calls.sendSignal(callId, myId, "ice", JSON.stringify(e.candidate)).catch(() => {});
       };
@@ -237,6 +247,7 @@ export default function CallProvider({ children }: { children: React.ReactNode }
         if (!info) return;
         setCall(info);
         setPhase("outgoing");
+        iceExtra.current = await fetchTurnServers();
         const pc = createPC(info.id, user.id);
         await addLocalMedia(type);
         const offer = await pc.createOffer();
@@ -256,6 +267,7 @@ export default function CallProvider({ children }: { children: React.ReactNode }
     try {
       await calls.accept(call.id);
       setPhase("connecting");
+      iceExtra.current = await fetchTurnServers();
       createPC(call.id, user.id);
       await addLocalMedia(call.type);
       startSignalPoll(call.id, user.id);
