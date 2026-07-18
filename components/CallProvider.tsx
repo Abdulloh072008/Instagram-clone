@@ -11,13 +11,26 @@ import type { CallInfo, CallType } from "@/lib/types";
 // STUN finds your public address; TURN *relays* media when the two peers are on
 // different NATs (home ↔ mobile), which STUN alone can't traverse. Without a TURN
 // relay, ontrack still fires (so the call looks connected) but no audio/video ever
-// flows — exactly the "no sound / black video" symptom. These are the free public
-// Open Relay TURN servers; for heavy use, run your own coturn.
+// flows — exactly the "no sound / black video" symptom.
+//
+// For reliable cross-network calls, set your own TURN (e.g. a free metered.ca key)
+// via env: NEXT_PUBLIC_TURN_URL / NEXT_PUBLIC_TURN_USER / NEXT_PUBLIC_TURN_CRED.
+// The Open Relay entries below are a best-effort free fallback (may be rate-limited).
+const envTurn: RTCIceServer[] = process.env.NEXT_PUBLIC_TURN_URL
+  ? [
+      {
+        urls: process.env.NEXT_PUBLIC_TURN_URL,
+        username: process.env.NEXT_PUBLIC_TURN_USER ?? "",
+        credential: process.env.NEXT_PUBLIC_TURN_CRED ?? "",
+      },
+    ]
+  : [];
+
 const RTC_CONFIG: RTCConfiguration = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
-    { urls: "stun:stun.relay.metered.ca:80" },
+    ...envTurn,
     { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
     { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" },
     { urls: "turn:openrelay.metered.ca:443?transport=tcp", username: "openrelayproject", credential: "openrelayproject" },
@@ -42,6 +55,8 @@ export default function CallProvider({ children }: { children: React.ReactNode }
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [muted, setMuted] = useState(false);
   const [camOff, setCamOff] = useState(false);
+  // Браузер заблокировал автозвук удалённого потока — покажем «включить звук».
+  const [needsAudioTap, setNeedsAudioTap] = useState(false);
 
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const localRef = useRef<MediaStream | null>(null);
@@ -69,6 +84,7 @@ export default function CallProvider({ children }: { children: React.ReactNode }
     setRemoteStream(null);
     setMuted(false);
     setCamOff(false);
+    setNeedsAudioTap(false);
     sinceRef.current = 0;
   }, []);
 
@@ -93,7 +109,7 @@ export default function CallProvider({ children }: { children: React.ReactNode }
     const a = remoteAudioRef.current;
     if (a) {
       a.srcObject = remoteStream;
-      if (remoteStream) a.play().catch(() => {});
+      if (remoteStream) a.play().then(() => setNeedsAudioTap(false)).catch(() => setNeedsAudioTap(true));
     }
   }, [remoteStream, phase]);
 
@@ -108,7 +124,15 @@ export default function CallProvider({ children }: { children: React.ReactNode }
         setPhase("active");
       };
       pc.onconnectionstatechange = () => {
-        if (["failed", "closed", "disconnected"].includes(pc.connectionState)) endLocally();
+        const st = pc.connectionState;
+        // "disconnected" is often transient (a blip) and can recover to
+        // "connected" — only tear down on a real end.
+        if (st === "failed" || st === "closed") endLocally();
+        else if (st === "connected") {
+          // Media is flowing — (re)start playback in case autoplay was deferred.
+          remoteAudioRef.current?.play().then(() => setNeedsAudioTap(false)).catch(() => setNeedsAudioTap(true));
+          remoteVideoRef.current?.play().catch(() => {});
+        }
       };
       pcRef.current = pc;
       return pc;
@@ -303,6 +327,11 @@ export default function CallProvider({ children }: { children: React.ReactNode }
     localRef.current?.getVideoTracks().forEach((t) => (t.enabled = !next));
     setCamOff(next);
   }
+  // Ручной запуск звука, если браузер заблокировал автозапуск (это жест пользователя).
+  function enableAudio() {
+    remoteAudioRef.current?.play().then(() => setNeedsAudioTap(false)).catch(() => {});
+    remoteVideoRef.current?.play().catch(() => {});
+  }
 
   // The other party is whichever side isn't me.
   const peerName = call ? (call.callerId === user?.id ? call.calleeName : call.callerName) : "";
@@ -342,6 +371,14 @@ export default function CallProvider({ children }: { children: React.ReactNode }
       {/* Active / outgoing call overlay */}
       {(phase === "outgoing" || phase === "connecting" || phase === "active") && call && (
         <div className="fixed inset-0 z-60 flex flex-col bg-neutral-950">
+          {needsAudioTap && phase === "active" && (
+            <button
+              onClick={enableAudio}
+              className="absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-black shadow-lg"
+            >
+              🔊 Нажми, чтобы включить звук
+            </button>
+          )}
           <div className="relative flex flex-1 items-center justify-center overflow-hidden">
             {/* Remote video — mounted for the whole video call so the ref binds
                 reliably; hidden until the stream arrives. Muted on purpose: sound
