@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth";
-import { presence } from "@/lib/services";
 import SearchPanel from "./SearchPanel";
 import NotificationsPanel from "./NotificationsPanel";
 import Avatar from "./Avatar";
@@ -27,31 +26,11 @@ export default function Sidebar() {
   const [panel, setPanel] = useState<Panel>(null);
   const [rendered, setRendered] = useState<Panel>(null);
   const [collapsedManual, setCollapsedManual] = useState(false);
-  const [meOnline, setMeOnline] = useState(false);
 
   // Keep the panel content mounted while it slides out, so closing animates too.
   useEffect(() => {
     if (panel) setRendered(panel);
   }, [panel]);
-
-  // Свой статус «в сети» — маленькая зелёная точка на аватарке (мгновенное
-  // подтверждение, что presence работает, даже когда тестируешь один).
-  useEffect(() => {
-    if (!user?.id) return;
-    let alive = true;
-    // Пингуем и сразу читаем свой статус — так своя точка загорается надёжно.
-    const beat = async () => {
-      await presence.heartbeat(user.id).catch(() => {});
-      const r = await presence.status([user.id]).catch(() => null);
-      if (alive && r) setMeOnline(Boolean(r.data?.[0]?.online));
-    };
-    beat();
-    const t = setInterval(beat, 20_000);
-    return () => {
-      alive = false;
-      clearInterval(t);
-    };
-  }, [user?.id]);
 
   // Collapsed when the user toggles it, or while a slide-out panel is open.
   const collapsed = collapsedManual || panel !== null;
@@ -149,13 +128,8 @@ export default function Sidebar() {
             isActive("/profile") && !collapsed ? "font-semibold" : "font-normal"
           }`}
         >
-          <span className="relative">
-            <Avatar src={user?.image} name={user?.userName} size={26} />
-            {meOnline && (
-              <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-black bg-green-500" />
-            )}
-          </span>
-          <span className={labelCls}>{meOnline ? "Profile · Active" : "Profile"}</span>
+          <Avatar src={user?.image} name={user?.userName} size={26} />
+          <span className={labelCls}>Profile</span>
         </Link>
 
         {/* Slide-out panel — absolute so it tracks the (centered) sidebar
