@@ -148,11 +148,12 @@ export default function MessageBubble({
           <div
             onDoubleClick={() => react("❤️")}
             title={fullTime(m.date)}
+            style={!bare && mine ? { background: "var(--chat-out, #0095f6)" } : undefined}
             className={
               bare
                 ? `min-w-0 ${sending ? "opacity-60" : ""}`
                 : `min-w-0 px-3.5 py-2 text-sm ${
-                    mine ? "bg-ig-blue text-white" : "bg-neutral-800 text-neutral-100"
+                    mine ? "text-white" : "bg-neutral-800 text-neutral-100"
                   } ${bubbleCorners(mine, startsGroup, endsGroup)} ${sending ? "opacity-60" : ""}`
             }
           >

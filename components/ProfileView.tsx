@@ -9,7 +9,7 @@ import FollowButton from "./FollowButton";
 import ProfileActions from "./ProfileActions";
 import Highlights from "./Highlights";
 import ProfileMusic from "./ProfileMusic";
-import { chats, reposts as repostsApi, posts as postsApi } from "@/lib/services";
+import { chats, reposts as repostsApi, posts as postsApi, profiles } from "@/lib/services";
 import { toast } from "@/lib/toast";
 import { useAuth } from "@/lib/auth";
 import { formatCount } from "@/lib/utils";
@@ -24,6 +24,7 @@ import {
   BookmarkIcon,
   LogoutIcon,
   SettingsIcon,
+  PlusIcon,
 } from "./Icons";
 import {
   DropdownMenu,
@@ -51,6 +52,30 @@ export default function ProfileView({
   const [tab, setTab] = useState<"posts" | "reels" | "reposts" | "tagged">("posts");
   const [reposts, setReposts] = useState<Post[] | null>(null);
   const [followers, setFollowers] = useState(profile.subscribersCount);
+  // Инлайн-редактирование описания прямо в профиле (без ухода в Edit profile).
+  const [bio, setBio] = useState(profile.about ?? "");
+  const [editingBio, setEditingBio] = useState(false);
+  const [draftBio, setDraftBio] = useState("");
+  const [savingBio, setSavingBio] = useState(false);
+  const genderNum = profile.gender === "Female" ? 1 : 0;
+
+  function startEditBio() {
+    setDraftBio(bio);
+    setEditingBio(true);
+  }
+  async function saveBio() {
+    setSavingBio(true);
+    try {
+      await profiles.update(draftBio.trim(), genderNum);
+      setBio(draftBio.trim());
+      setEditingBio(false);
+      toast("Bio updated", "ok");
+    } catch {
+      toast("Couldn't update bio");
+    } finally {
+      setSavingBio(false);
+    }
+  }
 
   useEffect(() => {
     if (tab !== "reposts" || reposts !== null) return;
@@ -158,7 +183,52 @@ export default function ProfileView({
           <div className="text-center text-sm sm:text-left">
             <p className="font-semibold">{fullName}</p>
             {profile.occupation && <p className="text-neutral-400">{profile.occupation}</p>}
-            {profile.about && <p className="whitespace-pre-line">{profile.about}</p>}
+            {editingBio ? (
+              <div className="mt-1 w-full max-w-sm">
+                <textarea
+                  value={draftBio}
+                  onChange={(e) => setDraftBio(e.target.value)}
+                  rows={3}
+                  autoFocus
+                  placeholder="Write a bio…"
+                  className="w-full resize-none rounded-lg border border-line bg-neutral-900 px-3 py-2 text-sm outline-none focus:border-neutral-500"
+                />
+                <div className="mt-1 flex gap-2">
+                  <button
+                    onClick={saveBio}
+                    disabled={savingBio}
+                    className="rounded-md bg-ig-blue px-3 py-1 text-xs font-semibold text-white hover:bg-ig-blue-hover disabled:opacity-50"
+                  >
+                    {savingBio ? "Saving…" : "Save"}
+                  </button>
+                  <button
+                    onClick={() => setEditingBio(false)}
+                    className="rounded-md px-3 py-1 text-xs font-semibold text-neutral-300 hover:bg-neutral-800"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : bio ? (
+              <p className="whitespace-pre-line">
+                {bio}
+                {isMe && (
+                  <button
+                    onClick={startEditBio}
+                    className="ml-2 align-middle text-xs font-semibold text-ig-blue hover:underline"
+                  >
+                    Edit
+                  </button>
+                )}
+              </p>
+            ) : isMe ? (
+              <button
+                onClick={startEditBio}
+                className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-ig-blue hover:underline"
+              >
+                <PlusIcon size={16} /> Add bio
+              </button>
+            ) : null}
           </div>
 
           <ProfileMusic userId={userId} isMe={isMe} />

@@ -13,8 +13,28 @@
 // Всё хранится device-local (localStorage) и никуда не отправляется. Это
 // осознанный компромисс демо-проекта — softclub федерации токенов не даёт.
 
+import { EXTRA_API_BASE } from "@/lib/config";
+
 type Cred = { userName: string; password: string };
 export type Glink = { userId: string; userName: string };
+
+/**
+ * Спросить у сервера, к какому softclub-аккаунту привязана эта Google-почта.
+ * Работает на ЛЮБОМ устройстве (не зависит от localStorage) — так вход через
+ * Google не создаёт дубль у друга, у которого нет локальных данных.
+ */
+export async function serverLinkedAccount(email: string): Promise<Glink | null> {
+  if (!email) return null;
+  try {
+    const r = await fetch(`${EXTRA_API_BASE}/AccountLink/by-email?email=${encodeURIComponent(email)}`);
+    const j = await r.json();
+    const link = j?.data;
+    if (link?.userId && link?.userName) return { userId: link.userId, userName: link.userName };
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 const norm = (e: string) => e.trim().toLowerCase();
 const credKey = (uid: string) => "sc_cred:" + uid;

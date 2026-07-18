@@ -14,6 +14,7 @@ import { otherUser, isNearBottom, threadChanged, buildThread, mergeThread, lates
 import { CHAT_SENT_EVENT } from "@/components/ChatList";
 import { useAuth } from "@/lib/auth";
 import { timeAgo } from "@/lib/utils";
+import { CHAT_THEMES, chatThemeById, getChatThemeId, setChatThemeId } from "@/lib/chatTheme";
 import type { ChatMessage, ExtraMessage, GifItem, MessageKind, UnifiedMessage } from "@/lib/types";
 import { BackIcon, PhoneIcon, VideoIcon } from "@/components/Icons";
 
@@ -29,6 +30,18 @@ export default function ConversationPage() {
   const [loading, setLoading] = useState(true);
   const [peer, setPeer] = useState<{ id: string; name: string; image: string | null } | null>(null);
   const [peerPresence, setPeerPresence] = useState<{ online: boolean; lastSeenAt: string } | null>(null);
+  // Тема чата (фон + цвет пузырей), запоминается по chatId.
+  const [themeId, setThemeId] = useState("default");
+  const [themeOpen, setThemeOpen] = useState(false);
+  useEffect(() => {
+    setThemeId(getChatThemeId(chatId));
+  }, [chatId]);
+  const theme = chatThemeById(themeId);
+  function pickTheme(id: string) {
+    setThemeId(id);
+    setChatThemeId(chatId, id);
+    setThemeOpen(false);
+  }
   // Optimistic messages shown before the server confirms them. Negative id
   // marks them as still sending and keeps them from colliding with real ids.
   // Kept apart from `messages` so the 5s poll can't wipe them.
@@ -286,6 +299,36 @@ export default function ConversationPage() {
           </Link>
         )}
         <div className="ml-auto flex items-center gap-5 text-neutral-200">
+          <div className="relative">
+            <button onClick={() => setThemeOpen((v) => !v)} aria-label="Chat theme" className="hover:text-white">
+              <svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3a9 9 0 1 0 0 18c1 0 1.5-.8 1.5-1.5 0-.4-.2-.7-.4-1-.3-.3-.4-.6-.4-1 0-.8.7-1.5 1.5-1.5H16a5 5 0 0 0 5-5c0-4.4-4-8-9-8Z" />
+                <circle cx="7.5" cy="10.5" r="1" fill="currentColor" /><circle cx="12" cy="7.5" r="1" fill="currentColor" /><circle cx="16.5" cy="10.5" r="1" fill="currentColor" />
+              </svg>
+            </button>
+            {themeOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setThemeOpen(false)} />
+                <div className="absolute right-0 top-9 z-20 w-56 rounded-xl border border-line bg-elevated p-3 shadow-xl">
+                  <p className="mb-2 text-xs font-semibold text-neutral-400">Chat theme</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {CHAT_THEMES.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => pickTheme(t.id)}
+                        className={`flex flex-col items-center gap-1 rounded-lg p-1 ${themeId === t.id ? "ring-2 ring-white" : "hover:bg-neutral-800"}`}
+                      >
+                        <span className="relative h-9 w-full overflow-hidden rounded-md border border-line" style={{ background: t.bg || "#0b0b0b" }}>
+                          <span className="absolute bottom-1 right-1 h-3 w-5 rounded-full" style={{ background: t.bubble }} />
+                        </span>
+                        <span className="text-[10px] text-neutral-300">{t.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
           <button
             onClick={() => peer && startCall({ id: peer.id, name: peer.name }, "audio")}
             disabled={!peer || callBusy}
@@ -306,7 +349,11 @@ export default function ConversationPage() {
       </header>
 
       {/* messages */}
-      <div ref={scrollRef} className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 py-4">
+      <div
+        ref={scrollRef}
+        style={{ "--chat-out": theme.bubble, background: theme.bg || undefined } as React.CSSProperties}
+        className="flex flex-1 flex-col overflow-y-auto overflow-x-hidden px-4 py-4"
+      >
         {loading &&
           BUBBLE_WIDTHS.map((w, i) => (
             <div key={i} className={`mb-0.5 flex ${i % 2 ? "justify-end" : "justify-start"}`}>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { signIn, signOut, useSession } from "next-auth/react";
+import { signIn, signOut, useSession, getProviders } from "next-auth/react";
 import { useAuth } from "@/lib/auth";
 import { EXTRA_API_BASE } from "@/lib/config";
 import { saveGlink } from "@/lib/glink";
@@ -40,6 +40,11 @@ export default function ConnectedAccounts() {
   const [busy, setBusy] = useState(false);
   const [email, setEmail] = useState("");
   const [msg, setMsg] = useState("");
+  // Google настроен на сервере? Если нет — блок вообще не показываем.
+  const [googleEnabled, setGoogleEnabled] = useState(false);
+  useEffect(() => {
+    getProviders().then((p) => setGoogleEnabled(Boolean(p?.google))).catch(() => {});
+  }, []);
 
   const load = async () => {
     if (!user?.id) return;
@@ -71,6 +76,7 @@ export default function ConnectedAccounts() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         userId: user.id,
+        userName: user.userName,
         provider: "google",
         providerAccountId: gs.providerAccountId ?? gs.user.email ?? "",
         email: gs.user.email ?? "",
@@ -107,6 +113,8 @@ export default function ConnectedAccounts() {
     if (res) { setLink(res); setMsg("Почта обновлена ✓"); } else setMsg("Не удалось обновить почту");
     setBusy(false);
   };
+
+  if (!googleEnabled) return null;
 
   return (
     <div className="mt-8 rounded-xl border border-line bg-elevated p-4">

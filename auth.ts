@@ -13,7 +13,10 @@ import Google from "next-auth/providers/google";
  * (локально: http://localhost:3000/api/auth/callback/google)
  */
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  providers: [Google],
+  // Регистрируем Google только если заданы креды — иначе кнопка вела бы на
+  // ошибку Google «Missing required parameter: client_id». На серверах без
+  // .env.local (у тиммейтов) Google-провайдера просто не будет, кнопка скроется.
+  providers: process.env.AUTH_GOOGLE_ID ? [Google] : [],
   trustHost: true,
   callbacks: {
     // Сохраняем id внешнего аккаунта в токен при первом входе...

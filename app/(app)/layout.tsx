@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth";
 import Sidebar from "@/components/Sidebar";
 import MobileNav from "@/components/MobileNav";
 import CallProvider from "@/components/CallProvider";
+import CommandPalette from "@/components/CommandPalette";
 import Skeleton, { PostCardSkeleton } from "@/components/Skeleton";
 import { presence } from "@/lib/services";
 
@@ -64,6 +65,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <main className="min-w-0 flex-1 pb-16 md:pb-0">{children}</main>
         <MobileNav />
       </div>
+      <CommandPalette />
     </CallProvider>
   );
 }
