@@ -192,6 +192,17 @@ export const timeCapsule = {
   all: () => extraApi.get<Envelope<CapsuleDto[]>>("/TimeCapsule/all"),
 };
 
+// ---------- Profile music (extra backend) — pin a track others can play ----------
+export interface TrackDto { trackName: string; artistName: string; previewUrl: string; artworkUrl: string }
+export interface ProfileMusicDto extends TrackDto { userId: string }
+export const music = {
+  search: (q: string) => extraApi.get<Envelope<TrackDto[]>>("/Music/search", { q }),
+  get: (userId: string) => extraApi.get<Envelope<ProfileMusicDto | null>>("/Music/get", { userId }),
+  set: (userId: string, t: TrackDto) =>
+    extraApi.postJson<Envelope<ProfileMusicDto>>("/Music/set", { userId, ...t }),
+  remove: (userId: string) => extraApi.del("/Music/remove", { userId }),
+};
+
 // ---------- Stories (extra backend: /StoryExtra + /StoryInteract) ----------
 // The main API's /Story controller is no longer used: the extra backend owns
 // stories now and serves reactions/replies the main one never had. No JWT here,

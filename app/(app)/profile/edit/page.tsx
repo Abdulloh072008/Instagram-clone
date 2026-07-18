@@ -49,6 +49,22 @@ export default function EditProfilePage() {
     }
   }
 
+  // Вставка скопированной картинки (Ctrl/⌘+V) прямо как фото профиля.
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const item = Array.from(e.clipboardData?.items ?? []).find((i) => i.type.startsWith("image/"));
+      const file = item?.getAsFile();
+      if (file) {
+        e.preventDefault();
+        onPickImage(file);
+      }
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+    // onPickImage только читает стабильные сеттеры/модули — переопределять эффект не нужно.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const save = handleSubmit(async ({ about, gender }) => {
     try {
       await profiles.update(about, Number(gender));
@@ -94,6 +110,7 @@ export default function EditProfilePage() {
           >
             Change photo
           </button>
+          <p className="mt-0.5 text-xs text-neutral-500">or paste a copied image (Ctrl/⌘+V)</p>
         </div>
         <input
           ref={fileRef}

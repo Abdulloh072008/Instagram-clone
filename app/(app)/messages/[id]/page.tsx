@@ -279,11 +279,9 @@ export default function ConversationPage() {
             </div>
             <div className="leading-tight">
               <span className="font-semibold">{peer.name}</span>
-              {peerPresence?.online ? (
-                <p className="text-xs text-green-500">Active now</p>
-              ) : peerPresence && new Date(peerPresence.lastSeenAt).getFullYear() > 2000 ? (
-                <p className="text-xs text-neutral-500">Active {timeAgo(peerPresence.lastSeenAt)}</p>
-              ) : null}
+              <p className={`text-xs ${peerPresence?.online ? "text-green-500" : "text-neutral-500"}`}>
+                {peerPresence?.online ? "online" : "offline"}
+              </p>
             </div>
           </Link>
         )}

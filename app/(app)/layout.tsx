@@ -17,13 +17,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     if (!loading && !user) router.replace("/login");
   }, [loading, user, router]);
 
-  // Presence: пока приложение открыто, каждые ~30с отмечаемся «в сети».
+  // Presence: пока приложение открыто, отмечаемся «в сети» каждые ~20с и сразу
+  // при возврате фокуса/вкладки (в фоне таймеры троттлятся браузером).
   useEffect(() => {
     if (!user?.id) return;
     const ping = () => presence.heartbeat(user.id).catch(() => {});
     ping();
-    const t = setInterval(ping, 30_000);
-    return () => clearInterval(t);
+    const t = setInterval(ping, 20_000);
+    const onVisible = () => document.visibilityState === "visible" && ping();
+    window.addEventListener("focus", ping);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener("focus", ping);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [user?.id]);
 
   // Auth resolves from localStorage in one tick, so this rarely paints — it

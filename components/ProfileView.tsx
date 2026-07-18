@@ -8,6 +8,7 @@ import PostGrid from "./PostGrid";
 import FollowButton from "./FollowButton";
 import ProfileActions from "./ProfileActions";
 import Highlights from "./Highlights";
+import ProfileMusic from "./ProfileMusic";
 import { chats, reposts as repostsApi, posts as postsApi } from "@/lib/services";
 import { toast } from "@/lib/toast";
 import { useAuth } from "@/lib/auth";
@@ -159,6 +160,8 @@ export default function ProfileView({
             {profile.occupation && <p className="text-neutral-400">{profile.occupation}</p>}
             {profile.about && <p className="whitespace-pre-line">{profile.about}</p>}
           </div>
+
+          <ProfileMusic userId={userId} isMe={isMe} />
         </div>
       </header>
 
